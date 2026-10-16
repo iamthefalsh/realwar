@@ -10,7 +10,8 @@ function splitHalves(l){const xs=l.map(u=>u.x),ys=l.map(u=>u.y),hz=Math.max(...x
   l=l.slice().sort((p,q)=>hz?p.x-q.x:p.y-q.y);const h=Math.ceil(l.length/2);return [l.slice(0,h),l.slice(h)];}
 const CMD={
   move(T,a){const us=myUnits(T,a.ids);if(!us.length||!NUM(a.x)||!NUM(a.y))return;let x=clamp(a.x,0,G.W*CELL),y=clamp(a.y,0,G.H*CELL);
-    if(a.tid){const e=G.units.find(u=>u.id===a.tid&&u.team!==T&&!u.dead);if(e){x=e.x;y=e.y;}}orderMove(us,x,y,us.length===1);},
+    if(a.tid){const e=G.units.find(u=>u.id===a.tid&&u.team!==T&&!u.dead);if(e){x=e.x;y=e.y;}}
+    for(const u of us)if(u.type==='eng'){dropJob(u);u.manualT=G.time+8;}orderMove(us,x,y,us.length===1);},
   stop(T,a){for(const u of myUnits(T,a.ids)){if(UT[u.type].air)orderPlane(u,null);else{u.ordX=null;if(u.state==='retreat')u.rc=null;arrive(u);}}},
   retreat(T,a){for(const u of myUnits(T,a.ids))if(!UT[u.type].air)startRetreat(u,true,'hp');},
   refuel(T,a){for(const u of myUnits(T,a.ids))if(UT[u.type].cls==='veh')startRetreat(u,true,'fuel');},
@@ -32,6 +33,8 @@ const CMD={
   hire(T,a){const c=G.countries[a.c];return c&&(a.n===100||a.n===500)?hire(T,c,a.n):'';},
   gift(T,a){const c=G.countries[a.c];return c&&(a.k==='gold'||a.k==='$')?gift(T,c,a.k):'';},
   sign(T,a){const c=G.countries[a.c];return c&&TREATY[a.k]?sign(c,a.k,T):'';},
+  arm(T,a){const b=G.blds.find(b=>b.id===a.id);return armSilo(T,b,a.k);},
+  launch(T,a){if(!STRIKE[a.k]||!NUM(a.x)||!NUM(a.y))return '';return launchStrike(T,a.k,a.x,a.y);},
   pol(T,a){if(POL[a.k]&&[0,1,2].includes(a.v))G.E[T].pol[a.k]=a.v;},
   war(T){if(G.peace&&!G.mp)declareWar();},
   surrender(T){if(G.mp&&!G.over)gameOver(T===1?'lose':'win','surrender');},

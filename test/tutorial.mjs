@@ -26,20 +26,23 @@ await p.evaluate(() => { G.speed = 3; }); log.push(await waitStep(4, 90000)); aw
 await p.screenshot({ path: OUT + 'tut-5.png' });
 await p.tap('.tab[data-tab="build"]'); await p.waitForTimeout(200); await p.tap('#panel .card[data-t="farm"]'); await p.waitForTimeout(200);
 await p.evaluate(() => { computePlaceCells(); const i = G.placeCells[0]; const [sx, sy] = w2s((i % G.W + .5) * CELL, ((i / G.W | 0) + .5) * CELL); onTap(sx, sy, false); endPlace(); }); log.push(await waitStep(5));
-// 6: iron mine on the marked deposit
-await p.evaluate(() => { startPlace('iron'); computePlaceCells(); const i = G.placeCells[0]; const [sx, sy] = w2s((i % G.W + .5) * CELL, ((i / G.W | 0) + .5) * CELL); onTap(sx, sy, false); endPlace(); }); log.push(await waitStep(6));
-// 7: recruit at the capital
+// 6: builders carry materials and finish the farm (sim at 3x)
+await p.waitForTimeout(400); await p.screenshot({ path: OUT + 'tut-6.png' });
+await p.evaluate(() => { G.speed = 3; }); log.push(await waitStep(6, 90000)); await p.evaluate(() => { G.speed = 1; });
+// 7: iron mine on the marked deposit
+await p.evaluate(() => { startPlace('iron'); computePlaceCells(); const i = G.placeCells[0]; const [sx, sy] = w2s((i % G.W + .5) * CELL, ((i / G.W | 0) + .5) * CELL); onTap(sx, sy, false); endPlace(); }); log.push(await waitStep(7));
+// 8: recruit at the capital
 await p.evaluate(() => { const c = capitalOf(1); CAM.x = c.x; CAM.y = c.y; clampCam(); const [sx, sy] = w2s(c.x, c.y); setSel([]); onTap(sx, sy, false); }); await p.waitForTimeout(250);
-await p.tap('#panel .card[data-t="inf"]'); log.push(await waitStep(7));
-// 8: form a division with ALL ARMY + Form Division
-await p.tap('#divBar .chip[data-div="all"]'); await p.waitForTimeout(250); await p.tap('#panel [data-act="form"]'); log.push(await waitStep(8));
-// 9: market trade
-await p.tap('#panel [data-act="close"]').catch(() => {}); await p.tap('.tab[data-tab="market"]'); await p.waitForTimeout(250); await p.tap('#panel [data-act="msell"][data-r="food"]'); log.push(await waitStep(9));
-// 10, 11: people and world tabs
-await p.tap('.tab[data-tab="people"]'); log.push(await waitStep(10)); await p.tap('.tab[data-tab="world"]'); log.push(await waitStep(11));
+await p.tap('#panel .card[data-t="inf"]'); log.push(await waitStep(8));
+// 9: form a division with ALL ARMY + Form Division
+await p.tap('#divBar .chip[data-div="all"]'); await p.waitForTimeout(250); await p.tap('#panel [data-act="form"]'); log.push(await waitStep(9));
+// 10: market trade
+await p.tap('#panel [data-act="close"]').catch(() => {}); await p.tap('.tab[data-tab="market"]'); await p.waitForTimeout(250); await p.tap('#panel [data-act="msell"][data-r="food"]'); log.push(await waitStep(10));
+// 11, 12: people and world tabs
+await p.tap('.tab[data-tab="people"]'); log.push(await waitStep(11)); await p.tap('.tab[data-tab="world"]'); log.push(await waitStep(12));
 await p.waitForTimeout(300); await p.screenshot({ path: OUT + 'tut-war.png' });
 const war = await p.evaluate(() => ({ peace: G.peace, aiCalm: G.tut.calm, target: G.tut.mark && G.tut.mark.name, targetOwner: G.tut.mark && G.tut.mark.owner }));
-// 12: skip the final battle to reach the end card
+// 13: skip the final battle to reach the end card
 await p.tap('#coach [data-tut="skip"]'); await p.waitForFunction(() => G.tut.done, null, { timeout: 5000 });
 await p.waitForTimeout(200); await p.screenshot({ path: OUT + 'tut-done.png' });
 const done = await p.evaluate(() => document.querySelector('#coach b').textContent);

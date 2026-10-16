@@ -29,13 +29,13 @@ function newEcon(t){
   const mk={},ph={},net={};for(const r of RES){mk[r]=RI[r].mk;ph[r]=[];net[r]=0;}
   return {t,money:500,res:{...START_RES},mp:400,pol:{tax:1,draft:1,ration:1},hap:62,hapT:62,fac:[],
     sh:{attack:0,loss:0,win:0,war:0,ally:0,trade:0},weary:0,cas:0,civDead:0,fled:0,
-    prod:{},cons:{},net,pop:0,cap:0,jobs:0,labor:0,fill:1,unemp:0,mil:0,mpCap:0,recruit:0,tax:0,growth:0,starving:false,
+    prod:{},cons:{},net,biz:0,goodsOk:false,pop:0,cap:0,jobs:0,labor:0,fill:1,unemp:0,mil:0,mpCap:0,recruit:0,tax:0,growth:0,starving:false,
     mk,ph,phT:0,fuelUse:0,noOil:false,state:'stable',collapseT:0,tradeIn:0,tradeOut:0};
 }
 function econTick(dt){
   for(const t of [1,2])econTeam(t,dt);
   countriesTick(dt);
-  if(dt>0){const W=G.W,N=W*G.H;for(let i=0;i<N;i++)if(G.wall[i]&&G.wallHp[i]<BT.wall.hp&&G.time-G.wallHit[i]>6)G.wallHp[i]=Math.min(BT.wall.hp,G.wallHp[i]+45*dt);}
+  // walls are finished and repaired by builders (see builders.js)
   if(dt>0&&!G.demo)periodicVoices(dt);
   if(dt>0)marketEvents(dt);
 }
@@ -48,18 +48,21 @@ function econTeam(t,dt){
   let jobs=0;for(const b of G.blds)if(b.owner===t&&b.prog>=1&&BT[b.type].work)jobs+=BT[b.type].work;
   const labor=pop*.3;E.jobs=jobs;E.labor=labor;E.fill=jobs?Math.min(1,labor/jobs):1;E.unemp=labor>0?Math.max(0,labor-jobs)/labor:0;
   const st=E.state,hapMod=st==='riot'?.55:st==='protest'?.8:st==='patriotic'?1.1:1,eff=E.fill*hapMod*eff0;
-  const prod={},cons={};for(const r of RES){prod[r]=0;cons[r]=0;}
+  const prod={},cons={};for(const r of RES){prod[r]=0;cons[r]=0;}let biz=0;
   for(const b of G.blds){if(b.owner!==t)continue;const B=BT[b.type];
-    if(b.prog<1){b.prog=Math.min(1,b.prog+dt/B.time);b.eff=0;continue;}
+    if(b.prog<1){b.eff=0;continue;}
     if(!B.out)continue;
     let k=eff;
     if(B.inp&&dt>0)for(const r in B.inp)k=Math.min(k,E.res[r]/(B.inp[r]*dt));
     k=Math.max(0,k);b.eff=k;
     if(B.inp)for(const r in B.inp){const v=B.inp[r]*k;E.res[r]-=v*dt;cons[r]+=v;}
-    for(const r in B.out){const v=B.out[r]*k;E.res[r]+=v*dt;prod[r]+=v;}}
+    for(const r in B.out){const v=B.out[r]*k;if(r==='$'){E.money+=v*dt;biz+=v;}else{E.res[r]+=v*dt;prod[r]+=v;}}}
+  E.biz=biz;
   const ration=POL.ration.m[E.pol.ration],need=pop*.00018*ration;cons.food+=need;
   if(E.res.food>=need*dt){E.res.food-=need*dt;E.starving=false;}else{E.res.food=0;E.starving=dt>0;}
   if(dt>0)cons.oil+=E.fuelUse/dt;E.fuelUse=0;
+  // citizens buy consumer goods when there are any: a small comfort that keeps them happier
+  const gneed=pop*.000025;cons.goods+=gneed;if(E.res.goods>=gneed*dt){E.res.goods-=gneed*dt;E.goodsOk=true;}else E.goodsOk=false;
   E.prod=prod;E.cons=cons;for(const r of RES)E.net[r]=prod[r]-cons[r];
   E.tax=pop*.0004*POL.tax.m[E.pol.tax]*(.55+E.hap/150)*(st==='riot'?.5:st==='protest'?.75:1)*eff0;
   E.money+=E.tax*dt;
@@ -93,6 +96,8 @@ function happiness(E,t,dt){
   const f=[],add=(n,v)=>{v=Math.round(v);if(v)f.push([n,v]);return v};
   let h=50;
   h+=add(G.peace?'Peacetime':'At war',G.peace?6:-4);
+  h+=add('Consumer goods',E.goodsOk?5:E.pop>40000?-3:0);
+  h+=add('Radioactive fallout',-Math.min(15,G.fallout.filter(f=>G.own[cellIdx(f.x,f.y)]===t).length*8));
   h+=add('Food supply',E.starving?-30:E.res.food<E.cons.food*25?-6:4);
   h+=add('Rations',POL.ration.h[E.pol.ration]);
   h+=add('Taxes',POL.tax.h[E.pol.tax]);
@@ -237,14 +242,14 @@ function civTick(dt){
   if((G.civT-=dt)<=0){G.civT=.8;
     for(const c of G.cities){if(!c.owner)continue;c.civN=c.civN||0;const want=Math.min(10,Math.round(c.pop/1600));
       if(c.civN<want&&G.civs.length<180){const a=Math.random()*TAU,r=rnd(6,26);
-        G.civs.push({c,owner:c.owner,x:c.x+Math.cos(a)*r,y:c.y+Math.sin(a)*r,tx:c.x,ty:c.y,sp:rnd(5,8),fl:0,life:0,shade:Math.random()});c.civN++;}}}
+        G.civs.push({id:G.nextId++,c,owner:c.owner,x:c.x+Math.cos(a)*r,y:c.y+Math.sin(a)*r,tx:c.x,ty:c.y,sp:rnd(5,8),fl:0,life:0,walk:0,ang:0});c.civN++;}}}
   for(const v of G.civs){const c=v.c;v.life+=dt;
     if(c.owner!==v.owner){v.gone=v.gone||G.time+12;const h=nearestCity(v.x,v.y,v.owner);if(h){v.tx=h.x;v.ty=h.y;}v.fl=1;}
     else if(c.panic>.35){if(!v.fl||dist2(v.x,v.y,v.tx,v.ty)<9){const a=Math.atan2(v.y-c.y,v.x-c.x)+rnd(-.6,.6),r=rnd(40,75);v.tx=c.x+Math.cos(a)*r;v.ty=c.y+Math.sin(a)*r;}v.fl=1;}
     else{v.fl=0;if(dist2(v.x,v.y,v.tx,v.ty)<4){
       const near=[];for(const b of G.blds)if(b.owner===c.owner&&dist2(b.x,b.y,c.x,c.y)<4900)near.push(b);
       const b=near.length&&Math.random()<.65?pick(near):null;v.tx=b?b.x+rnd(-5,5):c.x+rnd(-24,24);v.ty=b?b.y+rnd(-5,5):c.y+rnd(-24,24);}}
-    const dx=v.tx-v.x,dy=v.ty-v.y,L=Math.hypot(dx,dy);if(L>.5){const s=Math.min(L,(v.fl?24:v.sp)*dt);v.x+=dx/L*s;v.y+=dy/L*s;}
+    const dx=v.tx-v.x,dy=v.ty-v.y,L=Math.hypot(dx,dy);if(L>.5){const s=Math.min(L,(v.fl?24:v.sp)*dt);v.x+=dx/L*s;v.y+=dy/L*s;v.walk+=s;v.ang=Math.atan2(dy,dx);}
     if(v.gone&&(G.time>v.gone||L<3)){v.dead=true;c.civN--;}}
   if(G.civs.some(v=>v.dead))G.civs=G.civs.filter(v=>!v.dead);
 }

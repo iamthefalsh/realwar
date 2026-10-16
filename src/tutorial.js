@@ -15,6 +15,9 @@ const TUT=[
   start:s=>{s.city=G.tut.steps[2].city;G.tut.mark=s.city;},ok:s=>s.city.owner===1,show:s=>s.city,skip:1},
  {t:'Grow food',d:()=>T_('Open BUILD, pick Farm, then tap a green spot. Farms feed your citizens.','Open BUILD (B), pick Farm, then click a green spot. Farms feed your citizens.'),
   hl:'.tab[data-tab="build"],#panel .card[data-t="farm"]',start:s=>{s.n=ownCount('farm');G.tut.mark=null;},ok:s=>ownCount('farm')>s.n},
+ {t:'Builders at work',d:()=>'Your farm is a construction site. Builders (yellow hard hats) carry materials from the city, then build. The amber bar shows materials and the green bar shows construction. More builders = faster building.',
+  start:s=>{s.b=G.blds.filter(b=>b.owner===1&&b.type==='farm'&&b.prog<1).pop();G.tut.mark=s.b||null;
+    if(s.b){G.tab=null;G.place=null;G.placeCells=null;G.selDirty=true;CAM.x=s.b.x;CAM.y=s.b.y+40;CAM.z=Math.max(CAM.z,2);clampCam();}},ok:s=>!s.b||s.b.prog>=1,show:s=>s.b,skip:1},
  {t:'Dig for iron',d:()=>'Mines must sit on a resource deposit (the dashed circles). Build an Iron Mine on the iron deposit near your capital.',
   hl:'.tab[data-tab="build"],#panel .card[data-t="iron"]',start:s=>{s.n=ownCount('iron');const d=G.deps.find(d=>d.type==='iron'&&G.own[d.ci]===1&&!G.bAt.has(d.ci));G.tut.mark=d||null;s.dep=d;},
   ok:s=>ownCount('iron')>s.n,show:s=>s.dep,skip:1},

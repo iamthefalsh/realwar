@@ -107,7 +107,7 @@ function drawGround(u,s){
   if(u.sel){ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1;ctx.setLineDash([2.4,1.6]);circ(ctx,0,0,R+1.5);ctx.stroke();ctx.setLineDash([]);}
   else if(u.div&&u.team===1){ctx.strokeStyle=u.div.color;ctx.globalAlpha=.75;ctx.lineWidth=.9;circ(ctx,0,0,R);ctx.stroke();ctx.globalAlpha=1;}
   ctx.restore();
-  if(u.type==='inf')drawSquad(u,s);else if(u.type==='tank')drawTank(u,s);else if(u.type==='art')drawArt(u,s);else drawAA(u,s);
+  if(u.type==='inf')drawSquad(u,s);else if(u.type==='eng')drawBuilder(u,s);else if(u.type==='tank')drawTank(u,s);else if(u.type==='art')drawArt(u,s);else drawAA(u,s);
   ctx.save();ctx.translate(u.x,u.y);ctx.scale(s,s);
   if(u.sel||(u.hp<u.maxHp*.98&&G.time-u.lastHit<8)){const f=u.hp/u.maxHp;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(-5,-R-3,10,1.6);ctx.fillStyle=hpCol(f);ctx.fillRect(-5,-R-3,10*f,1.6);}
   if(u.ally!=null){ctx.fillStyle=G.countries[u.ally].flag.c[0];ctx.fillRect(6.6,-R-3.6,2.6,2.2);ctx.strokeStyle='#000';ctx.lineWidth=.3;ctx.strokeRect(6.6,-R-3.6,2.6,2.2);}
