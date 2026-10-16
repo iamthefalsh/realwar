@@ -12,7 +12,7 @@ const r = await p.evaluate(() => {
   G.place = { type: 'wall', n: 0 }; let n = 0;
   for (let a = 0; a < Math.PI * 2; a += .05) { const x = Math.round(cap.cx + Math.cos(a) * 6), y = Math.round(cap.cy + Math.sin(a) * 6); if (!placeOne('wall', y * G.W + x)) n++; }
   G.place = null; for (let i = 0; i < 300; i++) { G.wallHp.forEach((v, i) => { if (G.wall[i]) G.wallHp[i] = BT.wall.hp; }); }
-  G.ai[2] = { think: 1e9, strat: 1e9, plane: 1e9, econ: 1e9, dip: 1e9, wall: 1e9 };
+  Object.assign(aiState(2), { think: 1e9, strat: 1e9, plane: 1e9, econ: 1e9, dip: 1e9, wall: 1e9 });
   const base = Math.atan2(foe.cy - cap.cy, foe.cx - cap.cx), ex = cap.x + Math.cos(base) * CELL * 11, ey = cap.y + Math.sin(base) * CELL * 11;
   const us = []; for (let i = 0; i < 6; i++) { const u = spawnUnit(i % 3 ? 'inf' : 'tank', 2, ex + rnd(-15, 15), ey + rnd(-15, 15)); us.push(u); }
   for (let i = 0; i < 10; i++) update(1 / 30);

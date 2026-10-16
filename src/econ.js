@@ -85,8 +85,8 @@ function econTeam(t,dt){
   E.phT-=dt;if(E.phT<=0){E.phT=2;for(const r of RES){const h=E.ph[r];h.push(mPrice(E,r));if(h.length>40)h.shift();}}
   if(E.hap<10&&!G.peace)E.collapseT+=dt;else E.collapseT=Math.max(0,E.collapseT-dt*2);
   if(E.collapseT>45&&!G.over)gameOver(t===1?'lose':'win','collapse');
-  if(t===1){G.stats.peakPop=Math.max(G.stats.peakPop,pop);
-    if(E.collapseT>15&&!(G.alertT.col>G.time)&&!G.demo){G.alertT.col=G.time+15;toast('The government is about to collapse! Raise happiness now','bad','warn');}}
+  G.stats[t].peakPop=Math.max(G.stats[t].peakPop,pop);
+  if(E.collapseT>15&&!(G.alertT['col'+t]>G.time)){G.alertT['col'+t]=G.time+15;note(t,'The government is about to collapse! Raise happiness now','bad','warn');}
   E.noOil=false;
 }
 function happiness(E,t,dt){
@@ -116,11 +116,10 @@ function updateState(E,t,dt){
   if(H<18)s='riot';else if(H<33)s=s==='riot'&&H<22?'riot':'protest';else if(H>72)s='patriotic';
   else if((s==='protest'&&H>37)||(s==='patriotic'&&H<68)||(s==='riot'))s='stable';
   if(s!==E.state){const prev=E.state;E.state=s;
-    if(t===1&&!G.demo){
-      if(s==='protest'){toast('Protests break out across the country','bad','pop');voice(1,'protest',{},true);}
-      else if(s==='riot'){toast('RIOTS! Production and recruitment collapse','bad','warn');voice(1,'riot',{},true);sfx('alert');}
-      else if(s==='patriotic'){toast('Patriotic fervour! Output and volunteers up','good','pop');voice(1,'content',{},true);}
-      else if(prev==='protest'||prev==='riot')toast('Calm returns to the streets','good','pop');}}
+    if(s==='protest'){note(t,'Protests break out across the country','bad','pop');voice(t,'protest',{},true);}
+    else if(s==='riot'){note(t,'RIOTS! Production and recruitment collapse','bad','warn','alert');voice(t,'riot',{},true);}
+    else if(s==='patriotic'){note(t,'Patriotic fervour! Output and volunteers up','good','pop');voice(t,'content',{},true);}
+    else if(prev==='protest'||prev==='riot')note(t,'Calm returns to the streets','good','pop');}
   if(s==='riot'&&dt>0&&Math.random()<.12*dt*2){const own=G.blds.filter(b=>b.owner===t&&b.type!=='house');if(own.length){const b=pick(own);damageBld(b,25,null);puff(b.x,b.y,'rgba(255,140,40,.9)',6);}}
 }
 function refugees(t,amt,from){
@@ -128,7 +127,7 @@ function refugees(t,amt,from){
   const dest=G.cities.filter(c=>c.owner===t&&c!==from&&c.panic<.3).sort((a,b)=>(b.cap-b.pop)-(a.cap-a.pop));
   for(const c of dest){if(left<=0)break;const room=Math.max(0,c.cap-c.pop),m=Math.min(room,left);c.pop+=m;left-=m;}
   E.fled+=left;
-  if(t===1&&amt>50&&Math.random()<.25)voice(1,'refugee',{city:from.name});
+  if(amt>50&&Math.random()<.25)voice(t,'refugee',{city:from.name});
 }
 
 // ================= INTERNAL MARKET =================
@@ -138,15 +137,15 @@ function mQuote(E,r,q,buy){return q*mP(r,buy?E.mk[r]-q/2:E.mk[r]+q/2)*(buy?1.06:
 function mBuy(t,r,q){const E=G.E[t];if(E.mk[r]-q<RI[r].mk*.08)return 'The market has run dry';const c=mQuote(E,r,q,true);if(E.money<c)return 'Not enough money';
   E.money-=c;E.mk[r]-=q;E.res[r]+=q;E.tradeOut+=c;return ''}
 function mSell(t,r,q){const E=G.E[t];if(E.res[r]<q)return 'Not enough '+RI[r].n.toLowerCase();const c=mQuote(E,r,q,false);
-  E.money+=c;E.mk[r]+=q;E.res[r]-=q;E.tradeIn+=c;if(t===1)G.stats.traded+=c;return ''}
+  E.money+=c;E.mk[r]+=q;E.res[r]-=q;E.tradeIn+=c;G.stats[t].traded+=c;return ''}
 let mEvT=35;
 function marketEvents(dt){
   if((mEvT-=dt)>0)return;mEvT=rnd(30,55);
   const r=pick(RES),up=Math.random()<.55,t=Math.random()<.5?1:2,E=G.E[t];
   E.mk[r]*=up?.55:1.6;
-  if(t===1&&!G.demo){const n=RI[r].n.toLowerCase();
+  {const n=RI[r].n.toLowerCase();
     const msg=up?pick([`Shortage! ${RI[r].n} prices soar`,`Hoarders drive up ${n} prices`,`Strike cuts ${n} supply. Prices up`]):pick([`Glut of ${n}. Prices crash`,`Merchants dump ${n}. Cheap for now`]);
-    toast(msg,up?'bad':'good',r);}
+    note(t,msg,up?'bad':'good',r);}
 }
 
 // ================= FOREIGN TRADE & DIPLOMACY =================
@@ -160,9 +159,9 @@ function cTrade(t,c,r,q,buy){
   if(buy){if(c.st[r]<q)return `${c.name} has no ${n} to spare`;const v=cBuyP(c,r,t)*q;if(E.money<v)return 'Not enough money';
     E.money-=v;c.st[r]-=q;E.res[r]+=q;relGain(c,t,v);E.tradeOut+=v;}
   else{if(E.res[r]<q)return 'Not enough '+n;if(c.dm[r]<q)return `${c.name} doesn't want more ${n}`;const v=cSellP(c,r,t)*q;
-    E.money+=v;E.res[r]-=q;c.dm[r]-=q;relGain(c,t,v);E.tradeIn+=v;if(t===1)G.stats.traded+=v;}
+    E.money+=v;E.res[r]-=q;c.dm[r]-=q;relGain(c,t,v);E.tradeIn+=v;G.stats[t].traded+=v;}
   E.sh.trade=Math.min(5,E.sh.trade+.5);
-  if(t===1&&Math.random()<.2)voice(1,'trade',{country:c.name});
+  if(Math.random()<.2)voice(t,'trade',{country:c.name});
   return '';
 }
 const hireP=(c,t)=>PERSONA[c.persona].mpP*(1.25-c.rel[t]/200)*(c.tr[t].vol?.6:1);
@@ -170,7 +169,7 @@ function hire(t,c,n){const E=G.E[t];
   if(embargo(c,t))return `${c.name} is embargoing you`;
   if(c.mpA<n)return `${c.name} has only ${fmt(c.mpA)} volunteers left`;
   const v=hireP(c,t)*n/100;if(E.money<v)return 'Not enough money';
-  E.money-=v;E.mp+=n;c.mpA-=n;relGain(c,t,v*.5);if(t===1)voice(1,'hired',{country:c.name});return ''}
+  E.money-=v;E.mp+=n;c.mpA-=n;relGain(c,t,v*.5);voice(t,'hired',{country:c.name});return ''}
 function gift(t,c,kind){const E=G.E[t],k=Math.max(.15,1-c.rel[t]/130);
   if(kind==='gold'){if(E.res.gold<5)return 'Not enough gold';E.res.gold-=5;c.rel[t]=Math.min(100,c.rel[t]+7*k);}
   else{if(E.money<250)return 'Not enough money';E.money-=250;c.rel[t]=Math.min(100,c.rel[t]+4.5*k);}
@@ -180,8 +179,8 @@ function canSign(c,k,t){if(c.tr[t][k])return 'Signed';if(k==='ally'&&c.tr[3-t].a
   if(c.rel[t]<treatyReq(c,k))return `Needs relations ${treatyReq(c,k)}`;const m=missing(G.E[t],TREATY[k].cost);return m?'Not enough '+m:''}
 function sign(c,k,t){const r=canSign(c,k,t);if(r)return r;pay(G.E[t],TREATY[k].cost);c.tr[t][k]=true;
   if(k==='ally'){c.rel[3-t]-=25;G.E[t].sh.ally=Math.min(10,G.E[t].sh.ally+6);}
-  if(!G.demo){if(t===1){toast(`${TREATY[k].n} signed with ${c.name}`,'good','handshake');sfx('capture');if(k==='ally')voice(1,'ally',{country:c.name},true);}
-    else toast(`${c.name} signs a ${TREATY[k].n} with ${G.nat[2].name}`,'bad','handshake');}
+  note(t,`${TREATY[k].n} signed with ${c.name}`,'good','handshake','capture');if(k==='ally')voice(t,'ally',{country:c.name},true);
+  note(3-t,`${c.name} signs a ${TREATY[k].n} with ${G.nat[t].name}`,'bad','handshake');
   G.selDirty=true;return ''}
 function countriesTick(dt){
   if(dt<=0)return;
@@ -194,43 +193,43 @@ function countriesTick(dt){
       if(c.persona==='pacifist'&&G.E[t].pol.draft===2)c.rel[t]-=.03*dt;
       if(c.tr[3-t].ally)c.rel[t]-=.02*dt;
       c.rel[t]=clamp(c.rel[t],-100,100);
-      for(const k of TKEYS)if(tr[k]&&c.rel[t]<treatyReq(c,k)-25){tr[k]=false;if(!G.demo&&t===1)toast(`${c.name} cancels the ${TREATY[k].n}!`,'bad','handshake');}
+      for(const k of TKEYS)if(tr[k]&&c.rel[t]<treatyReq(c,k)-25){tr[k]=false;note(t,`${c.name} cancels the ${TREATY[k].n}!`,'bad','handshake');}
       const tm=c.tm[t],E=G.E[t];
       if(tr.aid&&(tm.aid-=dt)<=0){tm.aid=20;const got=[];for(const r of c.exp.slice(0,2)){const q=r==='gold'?4:25;E.res[r]+=q;got.push(`+${q} ${RI[r].n.toLowerCase()}`);}
-        if(t===1&&!G.demo)toast(`Lend-Lease from ${c.name}: ${got.join(', ')}`,'good',c.exp[0]);}
-      if(tr.vol&&(tm.vol-=dt)<=0){tm.vol=YEAR;E.mp+=300;if(t===1&&!G.demo)toast(`300 volunteers arrive from ${c.name}`,'good','mp');}
+        note(t,`Lend-Lease from ${c.name}: ${got.join(', ')}`,'good',c.exp[0]);}
+      if(tr.vol&&(tm.vol-=dt)<=0){tm.vol=YEAR;E.mp+=300;note(t,`300 volunteers arrive from ${c.name}`,'good','mp');}
       if(tr.ally&&!G.peace&&(tm.ally-=dt)<=0){tm.ally=40;allyForce(c,t);}}}
 }
 function allyForce(c,t){const cap=capitalOf(t);if(!cap||G.units.filter(u=>u.team===t).length>=UNIT_CAP+10)return;
   const list=['inf','inf','tank'];if(c.persona==='militarist')list.push('art','inf');
   const us=list.map(k=>spawnUnit(k,t,cap.x+rnd(-20,20),cap.y+rnd(-20,20),null,c.id));
-  if(t===1&&!G.demo){toast(`${c.name} sends ${us.length} units to help!`,'good','handshake');voice(1,'ally',{country:c.name,city:cap.name});}
-  else if(t===2&&!G.demo)toast(`${c.name} troops join the enemy`,'bad','handshake');
+  note(t,`${c.name} sends ${us.length} units to help!`,'good','handshake');voice(t,'ally',{country:c.name,city:cap.name});
+  note(3-t,`${c.name} troops join the enemy`,'bad','handshake');
 }
 
 // ================= CITIZEN VOICES =================
 const VCOOL={attack:10,bombed:12,refugee:20,trade:30,win:4,lost:4,hired:20,nofuel:30,noguns:40,occupied:25};
 const LOUD=new Set(['attack','bombed','lost','win','war','ally','riot','protest']);
 function voice(t,cat,ctx={},force){
-  if(t!==1||!G||G.demo)return;const now=G.time;
-  if(!force&&G.lastVoice[cat]>now)return;G.lastVoice[cat]=now+(VCOOL[cat]||14);
+  if(!t||!G||G.demo)return;if(!G.mp&&t!==1)return;const now=G.time,key=t+cat;
+  if(!force&&G.lastVoice[key]>now)return;G.lastVoice[key]=now+(VCOOL[cat]||14);
   const q=pick(QUOTES[cat]||[]);if(!q)return;
-  const mine=G.cities.filter(c=>c.owner===1),home=(ctx.city&&!['win','lost'].includes(cat))?ctx.city:(pick(mine)||{name:'the capital'}).name;
+  const mine=G.cities.filter(c=>c.owner===t),home=(ctx.city&&!['win','lost'].includes(cat))?ctx.city:(pick(mine)||{name:'the capital'}).name;
   const p={id:G.nextId++,name:pick(FIRST)+' '+pick(LS1)+pick(LS2),age:18+(Math.random()*64|0),job:pick(JOBS),city:home,mood:q[0],
     skin:pick(SKIN),hairC:pick(HAIRC),shirt:pick(SHIRT),hs:Math.random()*5|0,t:now,cat};
-  p.text=q[1].replace('{city}',ctx.city||home).replace('{enemy}',G.nat[2].name).replace('{country}',ctx.country||'abroad').replace('{bld}',ctx.bld||'factory');
-  G.voices.unshift(p);if(G.voices.length>40)G.voices.pop();G.peopleDirty=true;
-  if(LOUD.has(cat))voiceToast(p);
+  p.text=q[1].replace('{city}',ctx.city||home).replace('{enemy}',G.nat[3-t].name).replace('{country}',ctx.country||'abroad').replace('{bld}',ctx.bld||'factory');
+  if(G.emit){G.emit(t,['v',p,LOUD.has(cat)?1:0]);return;}
+  addVoice(p,LOUD.has(cat));
 }
-let pvT=8;
-function periodicVoices(dt){
-  if((pvT-=dt)>0)return;pvT=rnd(12,18);const E=G.E[1];
+function addVoice(p,loud){G.voices.unshift(p);if(G.voices.length>40)G.voices.pop();G.peopleDirty=true;if(loud)voiceToast(p);}
+function periodicVoices(dt){for(const t of (G.mp?[1,2]:[1])){if((G.pvT[t]-=dt)<=0){G.pvT[t]=rnd(12,18);nationVoice(t);}}}
+function nationVoice(t){const E=G.E[t];
   let cat=null;
   if(E.starving)cat='hunger';else if(E.state==='riot')cat='riot';else if(E.state==='protest')cat='protest';
   else if(E.pop>E.cap*.97)cat='housing';else if(E.unemp>.4)cat='jobs';else if(E.weary>8)cat='weary';
   else if(E.pol.tax===2&&Math.random()<.6)cat='tax';else if(E.pol.draft===2&&Math.random()<.6)cat='draft';
   else if(G.peace)cat=Math.random()<.6?'prep':'content';else cat=E.hap>60?'content':pick(['weary','draft','content']);
-  voice(1,cat);
+  voice(t,cat);
 }
 
 // ================= CIVILIANS ON THE MAP =================
@@ -255,7 +254,7 @@ function declareWar(){
   G.peace=false;G.peaceEnd=G.time;
   for(const t of [1,2])G.E[t].sh.war=-8;
   for(const u of G.units)if(u.state==='move'&&!UT[u.type].air)requestPath(u,u.goalX,u.goalY);
-  if(G.demo)return;
+  if(G.demo||G.mp||typeof document==='undefined')return;
   const b=$('#warBan');b.innerHTML=`<h1>WAR</h1><p>${G.nat[2].name.toUpperCase()} MARCHES</p>`;b.classList.remove('hide');setTimeout(()=>b.classList.add('hide'),3300);
   sfx('siren');vib([120,60,120]);toast(`War with ${G.nat[2].name} has begun!`,'bad','warn');voice(1,'war',{},true);
 }

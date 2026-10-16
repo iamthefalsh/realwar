@@ -168,6 +168,11 @@ details li{margin:5px 0}
 .stats b{display:block;font-size:20px}.stats span{font-size:11px;color:#8aa0b6;letter-spacing:1px}
 .res{font-size:38px;font-weight:900;letter-spacing:5px;margin:0}
 .res.win{color:#3ea6ff}.res.lose{color:#ff4f5e}
+.big.online{background:linear-gradient(90deg,#ff7a45,#ff4f5e);color:#1a0306;box-shadow:0 8px 24px rgba(255,79,94,.3);margin-top:10px}
+.inp{width:100%;min-height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#e8eef5;font:inherit;font-size:16px;padding:0 14px;outline:none;user-select:text;-webkit-user-select:text}
+.inp:focus{border-color:#3ea6ff}
+.mpst{min-height:38px;margin-top:12px;font-size:13px;color:#bfe3ff;font-weight:600}
+#mpScr,#mpScr *{touch-action:manipulation}
 #warBan{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:6}
 #warBan h1{margin:0;font-size:46px;font-weight:900;letter-spacing:8px;color:#ff4f5e;text-shadow:0 0 30px rgba(255,79,94,.6),0 4px 0 #5f0d16;animation:war 3.2s ease-out forwards}
 #warBan p{margin:6px 0 0;font-weight:800;letter-spacing:3px;color:#ffd3d7;animation:war 3.2s ease-out forwards}
@@ -208,7 +213,8 @@ details li{margin:5px 0}
     <div class="opt"><label>DIFFICULTY</label><div class="seg" id="sDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div></div>
     <div class="opt"><label>MAP SIZE</label><div class="seg" id="sSize"><button data-v="small">Small</button><button data-v="medium" class="on">Medium</button><button data-v="large">Large</button></div></div>
     <div class="opt"><label>PREPARATION BEFORE WAR</label><div class="seg" id="sPrep"><button data-v="0">None</button><button data-v="2">2 years</button><button data-v="5" class="on">5 years</button></div></div>
-    <button class="big" id="bStart">DEPLOY</button>
+    <button class="big" id="bStart">PLAY VS AI</button>
+    <button class="big online" id="bOnline">PLAY ONLINE</button>
     <details>
       <summary>How to play</summary>
       <ul>
@@ -223,6 +229,20 @@ details li{margin:5px 0}
         <li>The enemy plays by your rules: same economy, same map (mirrored), and it only knows what its scouts have seen.</li>
       </ul>
     </details>
+  </div>
+</div>
+
+<div id="mpScr" class="screen hide">
+  <div class="box glass">
+    <h2 class="res" style="font-size:28px;color:#e8eef5">PLAY ONLINE</h2>
+    <div class="sub">REAL PLAYERS · SAME RULES · NO PEACE TIME</div>
+    <div class="opt"><label>YOUR NAME</label><input id="mpName" class="inp" maxlength="16" placeholder="Commander" autocomplete="off"></div>
+    <button class="big" id="bFind">FIND MATCH</button>
+    <div class="mpst" id="mpStatus"></div>
+    <details id="mpSrvBox"><summary>Server address</summary>
+      <div class="hint" style="margin:0 0 6px">Your Cloudflare Worker address, e.g. realwar-server.yourname.workers.dev</div>
+      <input id="mpSrv" class="inp" placeholder="realwar-server.yourname.workers.dev" autocomplete="off" autocapitalize="off" spellcheck="false"></details>
+    <button class="sec" id="bMpBack">Back</button>
   </div>
 </div>
 
