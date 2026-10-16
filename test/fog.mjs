@@ -1,0 +1,14 @@
+import { createRequire } from 'module';
+const require = createRequire('/root/.nvm/versions/node/v22.23.3/lib/node_modules/@playwright/mcp/');
+const { chromium } = require('playwright');
+const b = await chromium.launch({ executablePath: '/inner_container/opt/playwright/chromium-1232/chrome-linux64/chrome', args:['--disable-crash-reporter','--disable-crashpad','--no-zygote'], env:{...process.env,HOME:'/tmp'} });
+const p = await b.newPage({viewport:{width:390,height:844},deviceScaleFactor:2});const errs=[];p.on('pageerror',e=>errs.push(e.stack));
+await p.goto(new URL('../index.html', import.meta.url).href);await p.waitForTimeout(500);
+console.log(await p.evaluate(()=>{toMenu();$('#menu').classList.add('hide');startGame({size:'medium',diff:'normal',prep:'5'});
+  for(let i=0;i<30*120;i++)update(1/30);
+  const cap=capitalOf(1),en=G.units.filter(u=>u.team===2),far=en.filter(u=>Math.hypot(u.x-cap.x,u.y-cap.y)>400);
+  const eb=G.blds.filter(x=>x.owner===2);
+  CAM.x=capitalOf(2).x;CAM.y=capitalOf(2).y;CAM.z=1.3;$('#toasts').innerHTML='';
+  return JSON.stringify({enemyUnits:en.length,farFromYou:far.length,visibleToYou:en.filter(u=>u.vis[1]).length,enemyBuildings:eb.length,citiesSeen:G.cities.every(c=>c.seen1)});}));
+await p.waitForTimeout(200);await p.screenshot({path:new URL('./nofog-enemy-capital.png', import.meta.url).pathname});
+console.log('errors',errs.slice(0,3));await b.close();
