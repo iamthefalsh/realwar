@@ -1994,10 +1994,21 @@ function drawProj(p,s){
 // The match runs on the server. This client only shows the server's state and sends orders.
 // Each player always sees themselves as team 1 (blue, base at the bottom): for player 2 every
 // position, cell and team number is mirrored when it arrives and mirrored back when sent.
-const MP_DEFAULT_SERVER=''; // set to the Cloudflare Worker address after deploying
+const MP_DEFAULT_SERVER='realwar.zerapagamentos.workers.dev'; // the Cloudflare Worker that runs online matches
 const MP={ws:null,lobby:null,state:'off',team:1,flip:false,room:'',key:'',opp:'',me:'',units:new Map(),bmap:new Map(),divSig:'',retry:0,pingT:null,lpT:null,lastMsg:0,ping:0,WPX:0,HPX:0,N:0};
 const mpServer=()=>(localStorage.getItem('rw_server')||MP_DEFAULT_SERVER).trim();
-function wsBase(s){s=(s||mpServer()).trim().replace(/\/+$/,'');if(!s)return '';if(/^https?:\/\//i.test(s))return s.replace(/^http/i,'ws');return /^wss?:\/\//i.test(s)?s:'wss://'+s;}
+// accepts "host", "https://host/", "wss://host/lobby"…: keeps scheme + host only
+function srvParts(s){s=(s||mpServer()).trim();if(!s)return null;if(!/^[a-z]+:\/\//i.test(s))s='https://'+s;
+  let u;try{u=new URL(s);}catch(e){return null;}const sec=!/^(http|ws):$/i.test(u.protocol);return {ws:(sec?'wss://':'ws://')+u.host,http:(sec?'https://':'http://')+u.host,host:u.host};}
+function wsBase(s){const p=srvParts(s);return p?p.ws:'';}
+// tells apart "can't reach it" from "reached something that isn't the game server"
+async function mpCheck(s){const p=srvParts(s);if(!p)return 'That server address is not valid';
+  const tm=ms=>{const c=new AbortController();setTimeout(()=>c.abort(),ms);return c.signal;};
+  try{const r=await fetch(p.http+'/health',{signal:tm(8000),cache:'no-store'});const j=await r.json();if(j&&j.game==='realwar')return '';}
+  catch(e){try{await fetch(p.http+'/',{mode:'no-cors',signal:tm(8000),cache:'no-store'});
+    return `${p.host} is online but is not the RealWar game server yet. In Cloudflare, redeploy the Worker from the realwar GitHub repo.`;}
+    catch(e2){return `Cannot reach ${p.host}. Check the address and your internet connection.`;}}
+  return `${p.host} is online but is not the RealWar game server yet. In Cloudflare, redeploy the Worker from the realwar GitHub repo.`;}
 const mpStatus=t=>{$('#mpStatus').textContent=t};
 const MX=x=>MP.flip?MP.WPX-x:x,MY=y=>MP.flip?MP.HPX-y:y,MA=a=>MP.flip?wrapA(a+Math.PI):a,MT=t=>MP.flip&&t?3-t:t,MC=i=>MP.flip?MP.N-1-i:i;
 
@@ -2005,13 +2016,16 @@ const MX=x=>MP.flip?MP.WPX-x:x,MY=y=>MP.flip?MP.HPX-y:y,MA=a=>MP.flip?wrapA(a+Ma
 function openMP(){$('#menu').classList.add('hide');$('#endScr').classList.add('hide');$('#mpScr').classList.remove('hide');
   $('#mpName').value=localStorage.getItem('rw_name')||'';$('#mpSrv').value=mpServer();$('#mpSrvBox').open=!mpServer();
   mpStatus(mpServer()?'Tap Find match to enter the queue':'Paste the server address below first');}
-function mpFind(){
-  if(MP.state==='queue')return mpCancel();
+async function mpFind(){
+  if(MP.state==='queue'||MP.state==='checking')return mpCancel();
   const name=$('#mpName').value.trim()||'Commander';localStorage.setItem('rw_name',name);
-  const srv=$('#mpSrv').value.trim();if(srv)localStorage.setItem('rw_server',srv);
+  const srv=$('#mpSrv').value.trim();if(srv)localStorage.setItem('rw_server',srv);else localStorage.removeItem('rw_server');
   const base=wsBase();if(!base)return mpStatus('Paste the server address below first');
   initAudio();if(AC&&AC.state==='suspended')AC.resume();
-  let ws;try{ws=new WebSocket(base+'/lobby');}catch(e){return mpStatus('That server address is not valid');}
+  MP.state='checking';$('#bFind').textContent='CANCEL';mpStatus('Checking the server…');
+  const bad=await mpCheck();if(MP.state!=='checking')return;
+  if(bad){MP.state='off';$('#bFind').textContent='FIND MATCH';$('#mpSrvBox').open=true;return mpStatus(bad);}
+  let ws;try{ws=new WebSocket(base+'/lobby');}catch(e){MP.state='off';$('#bFind').textContent='FIND MATCH';return mpStatus('That server address is not valid');}
   MP.lobby=ws;MP.state='queue';$('#bFind').textContent='CANCEL';mpStatus('Connecting…');
   ws.onopen=()=>ws.send(JSON.stringify({t:'queue',name}));
   ws.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(x){return;}
@@ -2020,7 +2034,7 @@ function mpFind(){
       sessionStorage.setItem('rw_match',JSON.stringify({room:m.room,key:m.key,team:m.team,opp:m.opp,me:m.me,srv:base}));
       ws.onclose=null;ws.close();MP.lobby=null;clearInterval(MP.lpT);mpStatus(`Opponent found: ${m.opp}. Starting…`);sfx('capture');vib([40,40,40]);mpJoin(base);}
     else if(m.t==='error')mpStatus(m.msg);};
-  ws.onclose=()=>{if(MP.state!=='queue')return;MP.state='off';MP.lobby=null;$('#bFind').textContent='FIND MATCH';mpStatus('Could not reach the server. Check the address and your connection.');};
+  ws.onclose=()=>{if(MP.state!=='queue')return;MP.state='off';MP.lobby=null;$('#bFind').textContent='FIND MATCH';mpStatus('Lost the connection to the matchmaking queue. Tap Find match to try again.');};
   clearInterval(MP.lpT);MP.lpT=setInterval(()=>{if(MP.lobby&&MP.lobby.readyState===1)MP.lobby.send('{"t":"ping"}');},15000);
 }
 function mpCancel(){const ws=MP.lobby;if(ws){ws.onclose=null;try{ws.send('{"t":"cancel"}');ws.close();}catch(e){}}MP.lobby=null;MP.state='off';clearInterval(MP.lpT);$('#bFind').textContent='FIND MATCH';mpStatus('Search cancelled');}

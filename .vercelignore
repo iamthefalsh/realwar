@@ -3,3 +3,4 @@ test
 src
 build.sh
 PLAN.md
+wrangler.toml

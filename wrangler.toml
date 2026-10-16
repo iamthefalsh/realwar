@@ -1,0 +1,19 @@
+# Cloudflare config for the multiplayer server when the Worker is deployed from the repo root.
+# (server/wrangler.toml is the same config for deploys that use "server" as the root directory.)
+# The name must match the Worker's name in the Cloudflare dashboard.
+name = "realwar"
+main = "server/src/worker.js"
+compatibility_date = "2026-06-01"
+
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+# SQLite-backed Durable Objects are the kind available on the free Workers plan.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Lobby", "Room"]
