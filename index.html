@@ -173,6 +173,35 @@ details li{margin:5px 0}
 .inp:focus{border-color:#3ea6ff}
 .mpst{min-height:38px;margin-top:12px;font-size:13px;color:#bfe3ff;font-weight:600}
 #mpScr,#mpScr *{touch-action:manipulation}
+.row2{display:flex;gap:8px;margin-top:8px}.row2 .sec{margin-top:0}
+/* training coach */
+#coach{position:absolute;left:8px;right:116px;top:calc(env(safe-area-inset-top) + 148px);padding:11px 12px;pointer-events:auto;border-color:rgba(255,209,102,.45);animation:tin .3s}
+#coach .cs{display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:800;letter-spacing:1.4px;color:#ffd166;margin-bottom:4px}
+#coach .cs span{display:flex;gap:6px;align-items:center}#coach .bar{width:60px;height:4px;border-radius:2px;background:#2a323b;overflow:hidden}#coach .bar i{display:block;height:100%;background:#ffd166}
+#coach b{display:block;font-size:15px;margin-bottom:3px}#coach p{margin:0;font-size:13px;color:#d6e0ea;line-height:1.35}
+#coach .ca{display:flex;gap:6px;margin-top:9px;justify-content:flex-end}#coach .ca button{min-height:34px;padding:0 12px;font-size:12px}
+#coach.ok{border-color:#7be39a}#coach.ok b::after{content:"  ✓";color:#7be39a}
+#coach .lnk{background:none;border:0;color:#8aa0b6;font-weight:700;font-size:11px;letter-spacing:.5px;padding:0}
+.tutHL{position:relative;z-index:2;box-shadow:0 0 0 2px #ffd166,0 0 22px rgba(255,209,102,.8)!important;animation:hl 1.1s ease-in-out infinite}
+@keyframes hl{50%{box-shadow:0 0 0 3px #ffd166,0 0 34px rgba(255,209,102,1)}}
+/* controls help */
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;text-align:left;font-size:13px;align-items:center}
+.keys kbd,.tab kbd{display:inline-block;min-width:20px;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-bottom-width:2px;font:700 11px system-ui,sans-serif;color:#e8eef5;text-align:center;white-space:nowrap}
+.keys span{color:#c3d0dc}.keys h4{grid-column:1/-1;margin:10px 0 2px;font-size:11px;letter-spacing:1.4px;color:#8aa0b6}
+#helpScr .box{max-width:560px}
+.tab kbd{display:none;position:absolute;top:4px;right:6px;min-width:0;padding:0 4px;font-size:9px;opacity:.75}
+.pconly{display:none}
+@media (hover:hover) and (pointer:fine){.tab kbd{display:inline-block}.pconly{display:block}}
+/* desktop layout */
+@media (min-width:900px){
+  #panel{left:auto;right:12px;top:calc(env(safe-area-inset-top) + 150px);bottom:84px;width:410px;max-height:none}
+  #place{left:50%;right:auto;transform:translateX(-50%);width:540px;bottom:84px;margin:0}
+  #tabs{left:50%;right:auto;transform:translateX(-50%);width:640px;bottom:10px;padding:6px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(7,10,13,.9)}
+  #mini{right:auto;left:12px;top:auto;bottom:12px}
+  #fab{right:auto;left:12px;bottom:236px}
+  #coach{right:auto;left:12px;width:430px}
+  #divBar,#resBar{right:auto;max-width:calc(100vw - 440px)}
+}
 #warBan{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:6}
 #warBan h1{margin:0;font-size:46px;font-weight:900;letter-spacing:8px;color:#ff4f5e;text-shadow:0 0 30px rgba(255,79,94,.6),0 4px 0 #5f0d16;animation:war 3.2s ease-out forwards}
 #warBan p{margin:6px 0 0;font-weight:800;letter-spacing:3px;color:#ffd3d7;animation:war 3.2s ease-out forwards}
@@ -202,6 +231,7 @@ details li{margin:5px 0}
   </div>
   <div id="panel" class="glass hide"></div>
   <div id="place" class="glass hide"></div>
+  <div id="coach" class="glass hide"></div>
   <nav id="tabs"></nav>
 </div>
 <div id="warBan" class="hide"></div>
@@ -215,6 +245,7 @@ details li{margin:5px 0}
     <div class="opt"><label>PREPARATION BEFORE WAR</label><div class="seg" id="sPrep"><button data-v="0">None</button><button data-v="2">2 years</button><button data-v="5" class="on">5 years</button></div></div>
     <button class="big" id="bStart">PLAY VS AI</button>
     <button class="big online" id="bOnline">PLAY ONLINE</button>
+    <div class="row2"><button class="sec" id="bTrain">Training</button><button class="sec" id="bHelp">Controls</button></div>
     <details>
       <summary>How to play</summary>
       <ul>
@@ -246,11 +277,45 @@ details li{margin:5px 0}
   </div>
 </div>
 
+<div id="helpScr" class="screen hide" style="z-index:12">
+  <div class="box glass">
+    <h2 class="res" style="font-size:26px;color:#e8eef5">CONTROLS</h2>
+    <div class="keys">
+      <h4>MOUSE</h4>
+      <kbd>Left click</kbd><span>Select a unit, city or building</span>
+      <kbd>Left drag</kbd><span>Box-select units (hold Shift to add)</span>
+      <kbd>Double click</kbd><span>Select the whole division, or every unit of that type on screen</span>
+      <kbd>Right click</kbd><span>Move there, or attack the enemy you click</span>
+      <kbd>Right / middle drag</kbd><span>Move the map</span>
+      <kbd>Scroll</kbd><span>Zoom</span>
+      <h4>KEYBOARD</h4>
+      <kbd>W A S D</kbd><span>Move the map (arrow keys work too)</span>
+      <kbd>+ / −</kbd><span>Zoom in / out</span>
+      <kbd>Ctrl + A</kbd><span>Select your whole army</span>
+      <kbd>Ctrl + 1–9</kbd><span>Save the selection as a control group</span>
+      <kbd>1–9</kbd><span>Select a group (press twice to jump to it)</span>
+      <kbd>F</kbd><span>Form a division from the selection</span>
+      <kbd>X</kbd><span>Hold position · <kbd>R</kbd> Retreat · <kbd>T</kbd> Refuel</span>
+      <kbd>Q B M G P</kbd><span>Army, Build, Market, World, People tabs</span>
+      <kbd>C</kbd><span>Jump to your capital</span>
+      <kbd>Z</kbd><span>Game speed (vs AI)</span>
+      <kbd>Space</kbd><span>Pause · <kbd>Esc</kbd> cancel / close · <kbd>?</kbd> this screen</span>
+      <h4>TOUCH</h4>
+      <kbd>Tap</kbd><span>Select, then tap the map to move or tap an enemy to attack</span>
+      <kbd>Drag / pinch</kbd><span>Move the map / zoom</span>
+      <kbd>Hold + drag</kbd><span>Box-select units</span>
+    </div>
+    <button class="big" id="bHelpClose">GOT IT</button>
+  </div>
+</div>
+
 <div id="pauseScr" class="screen hide">
   <div class="box glass">
     <h2 class="res" style="font-size:28px">PAUSED</h2>
     <button class="big" id="bResume">RESUME</button>
     <button class="sec" id="bSound">Sound: ON</button>
+    <button class="sec" id="bHelp2">Controls</button>
+    <button class="sec pconly" id="bEdge">Edge scrolling: ON</button>
     <button class="sec" id="bRestart">Restart</button>
     <button class="sec" id="bQuit">Main menu</button>
   </div>
@@ -308,8 +373,8 @@ const BT={
  iron:{n:'Iron Mine',ico:'iron',cost:{$:70,wood:15},time:7,hp:140,on:'dep',dep:'iron',work:1100,out:{iron:1.1},d:'On an iron deposit'},
  oil:{n:'Oil Well',ico:'oil',cost:{$:100,wood:10,iron:10},time:8,hp:120,on:'dep',dep:'oil',work:700,out:{oil:1.2},d:'Petrol. Oil deposit'},
  gold:{n:'Gold Mine',ico:'gold',cost:{$:120,wood:20},time:9,hp:140,on:'dep',dep:'gold',work:1300,out:{gold:.22},d:'On a gold deposit'},
- steel:{n:'Steel Mill',ico:'steel',cost:{$:150,wood:20,iron:15},time:10,hp:200,on:'land',work:1500,inp:{iron:1,coal:.6},out:{steel:.8},d:'Iron + coal → steel'},
- arms:{n:'Arms Factory',ico:'guns',cost:{$:140,wood:15,iron:15},time:10,hp:200,on:'land',work:1400,inp:{iron:.5,wood:.4},out:{guns:1},d:'Iron + wood → guns'},
+ steel:{n:'Steel Mill',ico:'steel',cost:{$:150,wood:20,iron:15},time:10,hp:200,on:'land',work:1500,inp:{iron:1,coal:.6},out:{steel:.8},d:'Iron + coal make steel'},
+ arms:{n:'Arms Factory',ico:'guns',cost:{$:140,wood:15,iron:15},time:10,hp:200,on:'land',work:1400,inp:{iron:.5,wood:.4},out:{guns:1},d:'Iron + wood make guns'},
  wall:{n:'Wall',ico:'wall',cost:{$:6,wood:4,iron:1},time:1.5,hp:900,on:'wall',d:'Blocks enemy troops. Drag to paint'},
 };
 const BTYPES=Object.keys(BT);
@@ -1120,7 +1185,7 @@ function update(dt){
   if((G.terrT-=dt)<=0){G.terrT=.25;terrTick(.25);}
   if((G.econT-=dt)<=0){G.econT=.5;econTick(.5);}
   if(G.over)return;
-  if(!G.mp){aiTick(2,dt);if(G.demo)aiTick(1,dt);}
+  if(!G.mp){if(!(G.tut&&G.tut.calm))aiTick(2,dt);if(G.demo)aiTick(1,dt);}
   if(G.units.some(u=>u.dead)){G.units=G.units.filter(u=>!u.dead);
     const n=G.sel.length;G.sel=G.sel.filter(u=>!u.dead);if(G.sel.length!==n)G.selDirty=true;
     for(const d of G.divs.slice()){const m=d.units.length;d.units=d.units.filter(u=>!u.dead);if(d.units.length!==m)G.divDirty=true;if(!d.units.length&&!(d.team!==1&&d.retreating))disband(d);}}
@@ -1722,7 +1787,9 @@ const depSprite=t=>sprite('d'+t,48,g=>{g.translate(24,24);g.fillStyle='rgba(8,10
 const cv=$('#cv'),ctx=cv.getContext('2d');let VW=0,VH=0,DPR=1;
 const CAM={x:0,y:0,z:1,minZ:.3,maxZ:4};
 function fitBounds(){if(!G)return;CAM.minZ=Math.min(VW/(G.W*CELL),VH/(G.H*CELL))*.92;CAM.z=clamp(CAM.z,CAM.minZ,CAM.maxZ);clampCam();}
-function clampCam(){CAM.x=clamp(CAM.x,0,G.W*CELL);CAM.y=clamp(CAM.y,0,G.H*CELL);}
+// keep the view on the map: no empty space unless the whole map already fits on screen
+function clampCam(){const mw=G.W*CELL,mh=G.H*CELL,hw=VW/2/CAM.z,hh=VH/2/CAM.z;
+  CAM.x=hw*2>=mw?mw/2:clamp(CAM.x,hw,mw-hw);CAM.y=hh*2>=mh?mh/2:clamp(CAM.y,hh,mh-hh);}
 const s2w=(sx,sy)=>[(sx-VW/2)/CAM.z+CAM.x,(sy-VH/2)/CAM.z+CAM.y];
 const w2s=(wx,wy)=>[(wx-CAM.x)*CAM.z+VW/2,(wy-CAM.y)*CAM.z+VH/2];
 function circ(c,x,y,r){c.beginPath();c.arc(x,y,r,0,TAU);}
@@ -1801,6 +1868,9 @@ function render(){
   for(const w of G.wrecks)if(inV(w.x,w.y))drawWreck(w,s);
   for(const u of G.units)if(!u.dead&&!UT[u.type].air&&inV(u.x,u.y)&&show(u))drawGround(u,s);
   for(const c of G.cities)if(inV(c.x,c.y))drawCity(c,z);
+  if(G.tut&&G.tut.mark){const m=G.tut.mark,r=(26+5*Math.sin(G.time*5))*clamp(1/z,.8,2.2);ctx.strokeStyle='rgba(255,209,102,.95)';ctx.lineWidth=3*clamp(1/z,.8,2.2);
+    ctx.setLineDash([7,5]);ctx.lineDashOffset=-G.time*20;circ(ctx,m.x,m.y,r);ctx.stroke();ctx.setLineDash([]);ctx.lineDashOffset=0;
+    ctx.fillStyle='rgba(255,209,102,.95)';const ay=m.y-r-6-4*Math.sin(G.time*5),k=clamp(1/z,.8,2.2);ctx.beginPath();ctx.moveTo(m.x,ay);ctx.lineTo(m.x-6*k,ay-9*k);ctx.lineTo(m.x+6*k,ay-9*k);ctx.fill();}
   WT();
   for(const u of G.units)if(!u.dead&&u.landed&&inV(u.x,u.y)&&show(u))drawPlane(u,s);
   for(const p of G.proj)drawProj(p,s);
@@ -2200,8 +2270,8 @@ function frame(now){
   else if(G&&!G.paused){if(!G.over)for(let i=0;i<G.speed;i++)update(dt);updateFx(dt);civTick(dt);if(!G.demo&&!G.over){alerts();advisor();}}
   if(G&&G.demo){if(G.over){if(!demoEnd)demoEnd=now+2500;else if(now>demoEnd){demoEnd=0;startDemo();}}
     CAM.z=CAM.minZ*1.08;CAM.x=G.W*CELL/2+Math.sin(now/9000)*40;CAM.y=G.H*CELL/2+Math.cos(now/11000)*30;}
-  render();
-  if(G&&!G.demo){if((uiT-=dt)<=0){uiT=.25;uiTick();}
+  camTick(dt);render();
+  if(G&&!G.demo){if((uiT-=dt)<=0){uiT=.25;uiTick();tutTick();}
     if(G.selDirty){G.selDirty=false;renderPanel();}
     if(G.divDirty){G.divDirty=false;renderDivBar();}}
   requestAnimationFrame(frame);
@@ -2234,9 +2304,30 @@ function onTap(sx,sy,long){
   const c=pickCity(wx,wy);if(c){openCity(c);return;}
   if(G.selCity||G.selBld||G.tab){clearFocus();G.tab=null;G.country=null;G.selDirty=true;}
 }
-function boxSelect(g){const x0=Math.min(g.sx,g.ex),x1=Math.max(g.sx,g.ex),y0=Math.min(g.sy,g.ey),y1=Math.max(g.sy,g.ey);
+function boxSelect(g,add){const x0=Math.min(g.sx,g.ex),x1=Math.max(g.sx,g.ex),y0=Math.min(g.sy,g.ey),y1=Math.max(g.sy,g.ey);
   const l=G.units.filter(u=>{if(u.team!==1||u.dead||u.landed)return false;const [sx,sy]=w2s(u.x,u.y);return sx>=x0&&sx<=x1&&sy>=y0&&sy<=y1;});
-  setSel(l);boxMode=false;$('#bBox').classList.remove('on');}
+  setSel(add?[...new Set([...G.sel,...l])]:l);boxMode=false;$('#bBox').classList.remove('on');if(l.length)sfx('blip');}
+// ---- mouse (PC): left = select / box, right = command, right/middle drag = pan ----
+function orderAt(sx,sy){const [wx,wy]=s2w(sx,sy),e=pickUnit(wx,wy,2),tx=e?e.x:wx,ty=e?e.y:wy;
+  if(G.peace&&G.own[cellIdx(tx,ty)]===2&&!(G.alertT.bord>G.time)){G.alertT.bord=G.time+4;toast('Borders are closed until war is declared','','warn');}
+  doCmd('move',{ids:G.sel.map(u=>u.id),x:tx,y:ty,tid:e?e.id:0});G.markers.push({x:tx,y:ty,life:.6,max:.6,c:e?'255,110,110':'255,255,255'});sfx('blip');}
+function leftClick(sx,sy,shift){
+  if(!G||G.demo||G.over)return;const [wx,wy]=s2w(sx,sy);
+  if(G.place){placeAt(wx,wy);return;}
+  const u=pickUnit(wx,wy,1);
+  if(u){if(shift){const has=G.sel.includes(u);setSel(has?G.sel.filter(x=>x!==u):[...G.sel,u]);}else setSel([u]);sfx('blip');return;}
+  if(shift)return;
+  const c=pickCity(wx,wy,13*clamp(1/CAM.z,.75,2.2));if(c){openCity(c);return;}
+  const b=pickBld(wx,wy);if(b){setSel([]);G.tab=null;G.selBld=b;G.selDirty=true;sfx('blip');return;}
+  const c2=pickCity(wx,wy);if(c2){openCity(c2);return;}
+  if(G.sel.length)setSel([]);
+  if(G.selCity||G.selBld||G.tab){clearFocus();G.tab=null;G.country=null;G.selDirty=true;}
+}
+function rightClick(sx,sy){if(!G||G.demo||G.over)return;if(G.place){endPlace();return;}if(G.sel.length)orderAt(sx,sy);}
+function dblPick(sx,sy){if(!G||G.demo||G.place)return;const [wx,wy]=s2w(sx,sy),u=pickUnit(wx,wy,1);if(!u)return;
+  if(u.div)setSel(u.div.units);else setSel(G.units.filter(o=>o.team===1&&o.type===u.type&&!o.landed&&(([x,y])=>x>=0&&y>=0&&x<=VW&&y<=VH)(w2s(o.x,o.y))));sfx('blip');}
+const isMouse=e=>e.pointerType==='mouse';
+let hoverX=-1,hoverY=-1,lastClick={t:0,x:0,y:0};
 function paintTo(sx,sy){const [wx,wy]=s2w(sx,sy),cx=clamp(Math.floor(wx/CELL),0,G.W-1),cy=clamp(Math.floor(wy/CELL),0,G.H-1);
   let x=gest.lx==null?cx:gest.lx,y=gest.ly==null?cy:gest.ly;const dx=Math.abs(cx-x),dy=-Math.abs(cy-y),sx2=x<cx?1:-1,sy2=y<cy?1:-1;let err=dx+dy;
   const cells=[];
@@ -2244,8 +2335,13 @@ function paintTo(sx,sy){const [wx,wy]=s2w(sx,sy),cx=clamp(Math.floor(wx/CELL),0,
     if(x===cx&&y===cy)break;const e2=2*err;if(e2>=dy){err+=dy;x+=sx2;}if(e2<=dx){err+=dx;y+=sy2;}}
   gest.lx=cx;gest.ly=cy;if(cells.length)placeCells('wall',cells);}
 function finishPaint(){if(gest&&gest.type==='paint'&&gest.err&&!gest.ok)toast(gest.err,'bad');gest=null;}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('pointerdown',e=>{
-  if(!G||G.demo)return;cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(!G||G.demo)return;cv.setPointerCapture(e.pointerId);
+  if(isMouse(e)){e.preventDefault();
+    if(e.button===0&&G.place&&G.place.type==='wall'){gest={type:'paint',lx:null,ly:null,err:'',ok:0,mouse:1};paintTo(e.clientX,e.clientY);return;}
+    gest={type:e.button===0?'lpend':e.button===2?'rpend':'pan',sx:e.clientX,sy:e.clientY,ex:e.clientX,ey:e.clientY,cx:CAM.x,cy:CAM.y,shift:e.shiftKey,mouse:1,btn:e.button};return;}
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(ptrs.size===1){
     if(G.place&&G.place.type==='wall'){gest={type:'paint',lx:null,ly:null,err:'',ok:0};paintTo(e.clientX,e.clientY);return;}
     gest={type:'pend',sx:e.clientX,sy:e.clientY,ex:e.clientX,ey:e.clientY,cx:CAM.x,cy:CAM.y,box:boxMode,lp:false};
@@ -2254,6 +2350,12 @@ cv.addEventListener('pointerdown',e=>{
     gest={type:'pinch',d0:Math.hypot(a.x-b.x,a.y-b.y)||1,z0:CAM.z,wx,wy};}
 });
 cv.addEventListener('pointermove',e=>{
+  if(isMouse(e)){hoverX=e.clientX;hoverY=e.clientY;if(!gest||!gest.mouse){mouseCursor();return;}
+    if(gest.type==='paint'){paintTo(e.clientX,e.clientY);return;}
+    gest.ex=e.clientX;gest.ey=e.clientY;const far=Math.hypot(gest.ex-gest.sx,gest.ey-gest.sy)>6;
+    if(gest.type==='lpend'&&far&&!G.place)gest.type='box';else if(gest.type==='rpend'&&far)gest.type='pan';
+    if(gest.type==='pan'){CAM.x=gest.cx-(gest.ex-gest.sx)/CAM.z;CAM.y=gest.cy-(gest.ey-gest.sy)/CAM.z;clampCam();}
+    return;}
   if(!ptrs.has(e.pointerId)||!gest)return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(gest.type==='pinch'&&ptrs.size>=2){const [a,b]=[...ptrs.values()],mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
     CAM.z=clamp(gest.z0*Math.hypot(a.x-b.x,a.y-b.y)/gest.d0,CAM.minZ,CAM.maxZ);CAM.x=gest.wx-(mx-VW/2)/CAM.z;CAM.y=gest.wy-(my-VH/2)/CAM.z;clampCam();return;}
@@ -2263,6 +2365,13 @@ cv.addEventListener('pointermove',e=>{
   if(gest.type==='pan'){CAM.x=gest.cx-(gest.ex-gest.sx)/CAM.z;CAM.y=gest.cy-(gest.ey-gest.sy)/CAM.z;clampCam();}
 });
 function endPtr(e,cancel){
+  if(isMouse(e)){const g=gest;if(!g||!g.mouse)return;gest=null;if(cancel)return;
+    if(g.type==='paint'){gest=g;finishPaint();return;}
+    if(g.type==='box')boxSelect(g,g.shift||e.shiftKey);
+    else if(g.type==='lpend'){const now=performance.now();if(now-lastClick.t<330&&Math.hypot(g.sx-lastClick.x,g.sy-lastClick.y)<8){dblPick(g.sx,g.sy);lastClick.t=0;}
+      else{leftClick(g.sx,g.sy,g.shift||e.shiftKey);lastClick={t:now,x:g.sx,y:g.sy};}}
+    else if(g.type==='rpend')rightClick(g.sx,g.sy);
+    return;}
   if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);clearTimeout(lpTimer);if(!gest)return;
   if(gest.type==='paint'){finishPaint();return;}
   if(gest.type==='pinch'){if(ptrs.size===1){const p=[...ptrs.values()][0];gest={type:'pan',sx:p.x,sy:p.y,ex:p.x,ey:p.y,cx:CAM.x,cy:CAM.y};}else if(!ptrs.size)gest=null;return;}
@@ -2272,12 +2381,12 @@ function endPtr(e,cancel){
 cv.addEventListener('pointerup',e=>endPtr(e,false));cv.addEventListener('pointercancel',e=>endPtr(e,true));
 cv.addEventListener('wheel',e=>{if(!G||G.demo)return;e.preventDefault();const [wx,wy]=s2w(e.clientX,e.clientY);
   CAM.z=clamp(CAM.z*Math.exp(-e.deltaY*.0015),CAM.minZ,CAM.maxZ);CAM.x=wx-(e.clientX-VW/2)/CAM.z;CAM.y=wy-(e.clientY-VH/2)/CAM.z;clampCam();},{passive:false});
-addEventListener('keydown',e=>{if(!G||G.demo)return;if(e.key===' '){togglePause();e.preventDefault();}if(e.key==='Escape'){if(G.place)endPlace();else setSel([]);}});
+cv.addEventListener('pointerleave',e=>{if(isMouse(e)){hoverX=-1;hoverY=-1;}});
 document.addEventListener('gesturestart',e=>e.preventDefault());
 
 // ================= PLACEMENT =================
 function startPlace(t){G.place={type:t,n:0};G.placeDirty=true;setSel([]);G.tab=null;G.selDirty=true;
-  toast(t==='wall'?'Drag across your land to paint walls':`Tap a highlighted spot to build a ${BT[t].n}`,'',BT[t].ico);}
+  toast(t==='wall'?(IS_PC?'Left-drag across your land to paint walls. Right-click to stop':'Drag across your land to paint walls'):`${IS_PC?'Click':'Tap'} a highlighted spot to build a ${BT[t].n}${IS_PC?'. Right-click to stop':''}`,'',BT[t].ico);}
 function endPlace(){G.place=null;G.placeCells=null;G.tab='build';G.selDirty=true;}
 function placeCells(t,cells){const r=doCmd('place',{type:t,cells});if(!r){G.place.n+=cells.length;G.placeDirty=true;if(gest&&gest.type==='paint')gest.ok++;sfx('build');}return r}
 function placeOne(t,i){const e=placeErr(1,t,i);if(e)return e;const m=missing(G.E[1],BT[t].cost);if(m)return 'Not enough '+m;return placeCells(t,[i])}
@@ -2296,7 +2405,7 @@ function voiceToast(p){const T=$('#toasts'),el=document.createElement('div');el.
   el.querySelector('span').textContent='“'+p.text+'”';T.prepend(el);while(T.children.length>3)T.lastChild.remove();setTimeout(()=>el.classList.add('out'),4200);setTimeout(()=>el.remove(),4700);}
 const TABS=[['army','ARMY','t_army'],['build','BUILD','t_build'],['market','MARKET','t_market'],['world','WORLD','t_world'],['people','PEOPLE','t_people']];
 function renderTabs(){const cur=!G.sel.length&&!G.selCity&&!G.selBld&&!G.place?G.tab:null;
-  $('#tabs').innerHTML=TABS.map(([k,n,i])=>`<button class="tab${cur===k?' on':''}" data-tab="${k}">${svgI(i)}${n}<span class="badge hide" data-badge="${k}"></span></button>`).join('');}
+  $('#tabs').innerHTML=TABS.map(([k,n,i])=>`<button class="tab${cur===k?' on':''}" data-tab="${k}">${svgI(i)}${n}<kbd>${TAB_KEY[k]}</kbd><span class="badge hide" data-badge="${k}"></span></button>`).join('');}
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b||!G)return;const k=b.dataset.tab;if(G.place)G.place=null;
   const cur=!G.sel.length&&!G.selCity&&!G.selBld?G.tab:null;setSel([]);G.tab=cur===k?null:k;if(k!=='world')G.country=null;G.selDirty=true;sfx('blip');});
 function renderResBar(){
@@ -2310,6 +2419,7 @@ function uiTick(){
   $('#tbP').style.width=p+'%';$('#tbE').style.width=q+'%';$('#tDate').textContent=dateStr(G.time);
   const ph=$('#phase');
   if(G.mp){ph.className='war';$('#phT').textContent=`ONLINE · VS ${MP.opp.toUpperCase()} · ${fmtT(G.time)}${MP.ping?' · '+MP.ping+'MS':''}`;$('#phB').parentNode.style.display='none';}
+  else if(G.tut&&G.peace){ph.className='peace';$('#phT').textContent=`TRAINING · STEP ${Math.min(G.tut.i+1,TUT.length)} OF ${TUT.length}`;$('#phB').style.width=(100*Math.max(0,G.tut.i)/TUT.length)+'%';$('#phB').parentNode.style.display='';}
   else if(G.peace){ph.className='peace';$('#phT').textContent='PEACE · WAR IN '+durStr(G.peaceEnd-G.time);$('#phB').style.width=(100*G.time/G.peaceEnd)+'%';$('#phB').parentNode.style.display='';}
   else{ph.className='war';$('#phT').textContent='AT WAR · '+fmtT(G.time-G.peaceEnd);$('#phB').parentNode.style.display='none';}
   liveUpdate($('#resBar'));
@@ -2382,7 +2492,7 @@ function renderPanel(){
   if(!k){P.classList.add('hide');P.innerHTML='';G.pk='';return;}
   P.classList.remove('hide');const keep=G.pk===k?P.scrollTop:0;
   P.innerHTML=G.sel.length?selPanel():G.selCity?cityPanel(G.selCity):G.selBld?bldPanel(G.selBld):G.country?countryPanel(G.country):TABP[G.tab]();
-  P.scrollTop=keep;G.pk=k;G.peopleSig=null;liveUpdate(P);
+  P.scrollTop=keep;G.pk=k;G.peopleSig=null;liveUpdate(P);tutHighlight();
 }
 function selPanel(){
   const {cnt,div}=selInfo(),n=G.sel.length,ar=G.sel.every(u=>u.retreatOn),onlyAir=G.sel.every(u=>UT[u.type].air),veh=G.sel.some(u=>UT[u.type].cls==='veh'),allies=G.sel.filter(u=>u.ally!=null).length;
@@ -2392,7 +2502,7 @@ function selPanel(){
   <div class="acts">${div?`<button data-act="disband">Disband</button>`:`<button data-act="form" class="pri">Form Division</button>`}
   ${n>1?`<button data-act="split">Split</button>`:''}<button data-act="stop">${onlyAir?'Return to base':'Hold'}</button>
   ${onlyAir?'':`<button data-act="retreat">Retreat</button>${veh?'<button data-act="refuel">Refuel</button>':''}<button data-act="autoret" class="${ar?'on':''}">Auto-retreat ${ar?'ON':'OFF'}</button>`}</div>
-  <div class="hint">${G.peace?'Peacetime: enemy borders are closed. Claim neutral land and cities. ':''}Tap map to move · tap enemy to attack${onlyAir?' · bombers hit buildings & walls near the target · tap a base to land':''}</div>`;
+  <div class="hint">${G.peace?'Peacetime: enemy borders are closed. Claim neutral land and cities. ':''}${IS_PC?'Right-click to move · right-click an enemy to attack · F division · X hold · R retreat · Ctrl+1–9 save group':'Tap map to move · tap enemy to attack'}${onlyAir?(IS_PC?' · bombers hit buildings & walls near the target · right-click a base to land':' · bombers hit buildings & walls near the target · tap a base to land'):''}</div>`;
 }
 function renderQueue(q,c){const sig=c.queue.join(',');if(q.dataset.sig!==sig){q.dataset.sig=sig;q.innerHTML=c.queue.length?c.queue.map((t,i)=>`<button class="qi" data-act="cancel" data-i="${i}">${uIcon(t,TC[1].l)}${i===0?'<div class="pg"></div>':''}</button>`).join('')+'<span class="qe">tap to cancel</span>':'<span class="qe">Queue empty. Pick a unit below</span>';}
   const pg=q.querySelector('.pg');if(pg&&c.queue.length)pg.style.width=(c.prog/UT[c.queue[0]].time*100)+'%';}
@@ -2552,17 +2662,18 @@ for(const [id,key] of [['#sDiff','diff'],['#sSize','size'],['#sPrep','prep']])$(
   menuOpts[key]=b.dataset.v;for(const x of $(id).children)x.classList.toggle('on',x===b);});
 $('#bStart').onclick=()=>{initAudio();if(AC&&AC.state==='suspended')AC.resume();startGame({...menuOpts});};
 function startGame(opts){
-  if(G&&G.mp)mpLeave();newGame(opts);resetUI();G.qty=10;prepWarned=0;tipI=0;mEvT=35;$('#bSpeed').style.display='';
+  if(G&&G.mp)mpLeave();$('#coach').classList.add('hide');newGame(opts);resetUI();G.qty=10;prepWarned=0;tipI=0;mEvT=35;$('#bSpeed').style.display='';
   $('#menu').classList.add('hide');$('#pauseScr').classList.add('hide');$('#endScr').classList.add('hide');$('#ui').style.display='';
   fitBounds();sizeMini();renderResBar();renderTabs();const cap=capitalOf(1);
   CAM.z=clamp(Math.min(VW,VH)/360,CAM.minZ,CAM.maxZ);CAM.x=cap.x;CAM.y=cap.y;clampCam();
   $('#bSpeed').textContent='1×';uiTick();
+  if(opts.tut)return;
   setTimeout(()=>{if(G.peace){toast(`${G.nat[1].full}: ${durStr(G.peaceEnd)} of peace to prepare for war with ${G.nat[2].name}`,'', 'warn');voice(1,'prep',{},true);}
     else toast('War from day one! Tap your capital to recruit','bad','warn');},500);
 }
 function resetUI(){$('#panel').classList.add('hide');$('#panel').innerHTML='';$('#place').classList.add('hide');$('#toasts').innerHTML='';boxMode=false;$('#bBox').classList.remove('on');gest=null;ptrs.clear();G.pk=null;}
 function startDemo(){newGame({size:'small',diff:'normal',demo:true});fitBounds();}
-function toMenu(){if(G&&G.mp){mpLeave();$('#bSpeed').style.display='';}$('#mpScr').classList.add('hide');$('#pauseScr').classList.add('hide');$('#endScr').classList.add('hide');$('#ui').style.display='none';resetUI();startDemo();$('#menu').classList.remove('hide');}
+function toMenu(){if(G&&G.mp){mpLeave();$('#bSpeed').style.display='';}$('#coach').classList.add('hide');$('#mpScr').classList.add('hide');$('#pauseScr').classList.add('hide');$('#endScr').classList.add('hide');$('#ui').style.display='none';resetUI();startDemo();$('#menu').classList.remove('hide');}
 function gameOver(res,why){
   if(G.over)return;G.over=true;G.result=res+':'+why;if(G.demo)return;
   setTimeout(()=>{const s=G.mpStats||G.stats[1],E=G.E[1];$('#endTitle').textContent=res==='win'?'VICTORY':'DEFEAT';$('#endTitle').className='res '+res;
@@ -2577,6 +2688,128 @@ function resize(){DPR=Math.min(2,window.devicePixelRatio||1);VW=innerWidth;VH=in
 addEventListener('resize',resize);
 resize();startDemo();requestAnimationFrame(frame);setTimeout(resize,300);
 if(sessionStorage.getItem('rw_match'))setTimeout(mpRejoin,400);
+
+// ================= PC: keyboard, edge scrolling, control groups, cursor =================
+const IS_PC=typeof matchMedia!=='undefined'&&matchMedia('(hover:hover) and (pointer:fine)').matches;
+const KEYS=new Set(),GROUPS={};let grpTap={k:'',t:0},edgeScroll=localStorage.getItem('rw_edge')!=='0',curT=0;
+const TAB_KEY={army:'Q',build:'B',market:'M',world:'G',people:'P'};
+const typing=e=>/^(INPUT|TEXTAREA|SELECT)$/.test((e.target&&e.target.tagName)||'');
+const shown=id=>!$(id).classList.contains('hide');
+function toggleHelp(v){const h=$('#helpScr');h.classList.toggle('hide',v===undefined?!h.classList.contains('hide'):!v);}
+function zoomBy(f,sx=VW/2,sy=VH/2){if(!G)return;const [wx,wy]=s2w(sx,sy);CAM.z=clamp(CAM.z*f,CAM.minZ,CAM.maxZ);CAM.x=wx-(sx-VW/2)/CAM.z;CAM.y=wy-(sy-VH/2)/CAM.z;clampCam();}
+function openTabKey(k){G.place=null;const cur=!G.sel.length&&!G.selCity&&!G.selBld?G.tab:null;setSel([]);G.tab=cur===k?null:k;if(k!=='world')G.country=null;G.selDirty=true;sfx('blip');}
+function mouseCursor(){
+  if(!G||G.demo||hoverX<0){cv.style.cursor='';return;}
+  if(G.place){cv.style.cursor='crosshair';return;}
+  const [wx,wy]=s2w(hoverX,hoverY);
+  if(G.sel.length&&pickUnit(wx,wy,2)){cv.style.cursor='crosshair';return;}
+  cv.style.cursor=pickUnit(wx,wy,1)||pickCity(wx,wy)||pickBld(wx,wy)?'pointer':'default';
+}
+function camTick(dt){
+  if(!G||G.demo||G.over)return;let vx=0,vy=0;
+  if(KEYS.has('a')||KEYS.has('arrowleft'))vx--;if(KEYS.has('d')||KEYS.has('arrowright'))vx++;
+  if(KEYS.has('w')||KEYS.has('arrowup'))vy--;if(KEYS.has('s')||KEYS.has('arrowdown'))vy++;
+  if(edgeScroll&&IS_PC&&hoverX>=0&&!gest&&document.hasFocus()){const m=12;if(hoverX<m)vx--;else if(hoverX>VW-m)vx++;if(hoverY<m)vy--;else if(hoverY>VH-m)vy++;}
+  if(vx||vy){const sp=Math.min(900,620/CAM.z)*dt;CAM.x+=vx*sp;CAM.y+=vy*sp;clampCam();}
+  if((curT-=dt)<=0){curT=.12;mouseCursor();}
+}
+addEventListener('keydown',e=>{
+  if(typing(e))return;const k=e.key.toLowerCase(),ctrl=e.ctrlKey||e.metaKey;
+  if(e.key==='?'){toggleHelp();e.preventDefault();return;}
+  if(shown('#helpScr')){if(k==='escape')toggleHelp(false);return;}
+  if(!G||G.demo)return;
+  if(k===' '){togglePause();e.preventDefault();return;}
+  if(k==='escape'){if(shown('#pauseScr')){$('#bResume').click();return;}
+    if(G.place)endPlace();else if(G.sel.length)setSel([]);else if(G.selCity||G.selBld||G.tab){clearFocus();G.tab=null;G.country=null;G.selDirty=true;}return;}
+  if(G.over||shown('#pauseScr'))return;
+  if(!ctrl&&['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)){KEYS.add(k);e.preventDefault();return;}
+  if(k==='+'||k==='='){zoomBy(1.25);return;}if(k==='-'||k==='_'){zoomBy(1/1.25);return;}
+  if(ctrl&&k==='a'){e.preventDefault();setSel(G.units.filter(u=>u.team===1&&!UT[u.type].air));return;}
+  if(/^[1-9]$/.test(k)){e.preventDefault();
+    if(ctrl){GROUPS[k]=G.sel.map(u=>u.id);toast(`Group ${k} saved (${G.sel.length} units)`);return;}
+    const l=(GROUPS[k]||[]).map(id=>G.units.find(u=>u.id===id)).filter(u=>u&&!u.dead);
+    if(!l.length){toast(`Group ${k} is empty. Select units and press Ctrl+${k}`);return;}
+    setSel(l);const now=performance.now();if(grpTap.k===k&&now-grpTap.t<400){const c=centroid(l);if(c){CAM.x=c.x;CAM.y=c.y;clampCam();}}grpTap={k,t:now};sfx('blip');return;}
+  if(ctrl||e.altKey)return;
+  const ids=G.sel.map(u=>u.id);
+  switch(k){
+    case 'f':if(ids.length){doCmd('form',{ids});G.selDirty=true;}return;
+    case 'x':if(ids.length)doCmd('stop',{ids});return;
+    case 'r':if(ids.length){doCmd('retreat',{ids});toast('Falling back');}return;
+    case 't':if(ids.length){doCmd('refuel',{ids});toast('Heading to a city to refuel','','oil');}return;
+    case 'c':$('#bHome').click();return;
+    case 'z':if(!G.mp)$('#bSpeed').click();return;
+    case 'q':return openTabKey('army');case 'b':return openTabKey('build');case 'm':return openTabKey('market');
+    case 'g':return openTabKey('world');case 'p':return openTabKey('people');
+  }
+});
+addEventListener('keyup',e=>KEYS.delete(e.key.toLowerCase()));
+addEventListener('blur',()=>{KEYS.clear();hoverX=-1;});
+$('#bHelp').onclick=()=>toggleHelp(true);$('#bHelp2').onclick=()=>toggleHelp(true);$('#bHelpClose').onclick=()=>toggleHelp(false);
+$('#bEdge').textContent='Edge scrolling: '+(edgeScroll?'ON':'OFF');
+$('#bEdge').onclick=()=>{edgeScroll=!edgeScroll;localStorage.setItem('rw_edge',edgeScroll?'1':'0');$('#bEdge').textContent='Edge scrolling: '+(edgeScroll?'ON':'OFF');};
+
+// ================= TRAINING MISSION =================
+// A guided game against a passive enemy. Each step waits until you actually do the thing.
+const T_=(touch,pc)=>IS_PC?pc:touch;
+const ownCount=type=>G.blds.filter(b=>b.owner===1&&b.type===type).length;
+const TUT=[
+ {t:'Your nation',d:()=>T_('This blue land is yours. The ★ is your capital. Drag to move the map and pinch to zoom.','This blue land is yours. The ★ is your capital. Move the map with WASD, right-drag or the screen edges, and zoom with the mouse wheel.'),
+  start:s=>{s.cx=CAM.x;s.cy=CAM.y;s.z=CAM.z;},ok:s=>Math.hypot(CAM.x-s.cx,CAM.y-s.cy)>90||Math.abs(CAM.z-s.z)>.25,next:1},
+ {t:'Select your troops',d:()=>T_('Tap one of your soldiers to select it. To grab several, hold your finger, then drag a box around them.','Left-click a soldier to select it, or left-drag a box around several units.'),
+  start:()=>{const c=capitalOf(1);CAM.x=c.x;CAM.y=c.y;CAM.z=Math.max(CAM.z,1.3);},ok:()=>G.sel.length>0},
+ {t:'Move out',d:()=>T_('With troops selected, tap the glowing neutral city to send them there.','With troops selected, right-click the glowing neutral city to send them there.'),
+  start:s=>{s.city=tutTarget(0);G.tut.mark=s.city;},ok:s=>G.units.some(u=>u.team===1&&(u.state==='move'||dist2(u.x,u.y,s.city.x,s.city.y)<CAP_R*CAP_R)),
+  show:s=>s.city},
+ {t:'Capture the city',d:()=>'Ground troops inside a city with no defenders capture it. Keep them there until the ring fills. The city, its province and its people become yours.',
+  start:s=>{s.city=G.tut.steps[2].city;G.tut.mark=s.city;},ok:s=>s.city.owner===1,show:s=>s.city,skip:1},
+ {t:'Grow food',d:()=>T_('Open BUILD, pick Farm, then tap a green spot. Farms feed your citizens.','Open BUILD (B), pick Farm, then click a green spot. Farms feed your citizens.'),
+  hl:'.tab[data-tab="build"],#panel .card[data-t="farm"]',start:s=>{s.n=ownCount('farm');G.tut.mark=null;},ok:s=>ownCount('farm')>s.n},
+ {t:'Dig for iron',d:()=>'Mines must sit on a resource deposit (the dashed circles). Build an Iron Mine on the iron deposit near your capital.',
+  hl:'.tab[data-tab="build"],#panel .card[data-t="iron"]',start:s=>{s.n=ownCount('iron');const d=G.deps.find(d=>d.type==='iron'&&G.own[d.ci]===1&&!G.bAt.has(d.ci));G.tut.mark=d||null;s.dep=d;},
+  ok:s=>ownCount('iron')>s.n,show:s=>s.dep,skip:1},
+ {t:'Recruit soldiers',d:()=>T_('Tap your capital and recruit a Rifle Squad. Units cost money, resources and manpower, and infantry also need guns.','Click your capital and recruit a Rifle Squad. Units cost money, resources and manpower, and infantry also need guns.'),
+  start:s=>{s.n=G.stats[1].built;const c=capitalOf(1);G.tut.mark=c;},ok:s=>{const c=capitalOf(1);return G.stats[1].built>s.n||(c&&c.queue.length>0);},show:()=>capitalOf(1)},
+ {t:'Form a division',d:()=>T_('Select several units (hold and drag a box, or tap ALL ARMY at the top) and tap Form Division. Divisions get their own button and move in formation.','Select several units (drag a box, or press Ctrl+A) and press F to form a division. Save it to a key with Ctrl+1, then press 1 to select it again.'),
+  hl:'#divBar .chip[data-div="all"],#panel [data-act="form"]',start:()=>{G.tut.mark=null;},ok:()=>G.divs.some(d=>d.team===1)},
+ {t:'The market',d:()=>T_('Open MARKET and buy or sell something. Buying raises the price and selling lowers it.','Open MARKET (M) and buy or sell something. Buying raises the price and selling lowers it.'),
+  hl:'.tab[data-tab="market"]',start:s=>{const E=G.E[1];s.v=E.tradeIn+E.tradeOut;},ok:s=>{const E=G.E[1];return E.tradeIn+E.tradeOut>s.v;}},
+ {t:'Your people',d:()=>'Open PEOPLE. Citizens work, pay taxes and become soldiers. Keep them fed, housed and happy, or they protest, riot and can bring down your government.',
+  hl:'.tab[data-tab="people"]',ok:()=>G.tab==='people'},
+ {t:'The world',d:()=>'Open WORLD. Neutral nations trade with you, sell you manpower and sign treaties. Allies even send troops. Your enemy is courting them too.',
+  hl:'.tab[data-tab="world"]',ok:()=>G.tab==='world'},
+ {t:'Go to war',d:()=>'War is declared! Take the marked enemy city. Bring tanks and infantry. Hurt units retreat on their own to heal.',
+  start:s=>{G.tut.calm=false;if(G.peace)declareWar();s.city=tutTarget(2);G.tut.mark=s.city;},ok:s=>s.city&&s.city.owner===1,show:s=>s.city,skip:1},
+];
+function tutTarget(owner){const cap=capitalOf(1);return G.cities.filter(c=>c.owner===owner&&c.type!=='capital').sort((a,b)=>dist2(a.x,a.y,cap.x,cap.y)-dist2(b.x,b.y,cap.x,cap.y))[0]||G.cities.find(c=>c.owner===owner);}
+function startTutorial(){
+  startGame({size:'small',diff:'easy',prep:'5',tut:true});
+  G.peaceEnd=1e9;tipI=TIPS.length;const E=G.E[1];E.money+=1500;for(const r of RES)E.res[r]+=r==='gold'?20:200;E.mp+=600;
+  G.tut={i:-1,steps:TUT.map(()=>({})),calm:true,mark:null,done:false,okT:0};$('#toasts').innerHTML='';tutGo(0);
+}
+function tutGo(i){const T=G.tut;T.i=i;T.okT=0;if(i>=TUT.length)return tutDone();const st=TUT[i],s=T.steps[i];if(st.start)st.start(s);tutCard();}
+function tutCard(){const T=G.tut,st=TUT[T.i],s=T.steps[T.i],box=$('#coach');box.classList.remove('hide','ok');
+  box.innerHTML=`<div class="cs"><span>TRAINING ${T.i+1}/${TUT.length}<span class="bar"><i style="width:${100*T.i/TUT.length}%"></i></span></span><button class="lnk" data-tut="exit">EXIT</button></div>
+  <b>${st.t}</b><p>${st.d()}</p><div class="ca">${st.show?'<button class="btn" data-tut="show">Show me</button>':''}${st.next||st.skip?`<button class="btn" data-tut="skip">${st.next?'Next':'Skip'}</button>`:''}</div>`;}
+function tutDone(){const T=G.tut;T.done=true;T.mark=null;const box=$('#coach');box.classList.remove('hide');box.classList.add('ok');
+  box.innerHTML=`<div class="cs"><span>TRAINING COMPLETE</span></div><b>You're ready, Commander</b><p>You know how to move, capture, build, recruit, trade and fight. Keep playing this map, or start a real game.</p>
+  <div class="ca"><button class="btn" data-tut="exit">Main menu</button><button class="btn pri" data-tut="play">Play vs AI</button></div>`;
+  sfx('capture');for(const el of document.querySelectorAll('.tutHL'))el.classList.remove('tutHL');}
+function tutHighlight(){const T=G&&G.tut,st=T&&!T.done&&T.i>=0?TUT[T.i]:null;
+  for(const el of document.querySelectorAll('.tutHL'))el.classList.remove('tutHL');
+  if(st&&st.hl&&!T.okT)for(const el of document.querySelectorAll(st.hl))el.classList.add('tutHL');}
+function tutTick(){
+  const T=G&&G.tut;if(!T||T.done||G.demo||T.i<0)return;const st=TUT[T.i],s=T.steps[T.i];
+  tutHighlight();
+  if(T.okT){if(performance.now()>T.okT)tutGo(T.i+1);return;}
+  if(st.ok(s)){T.okT=performance.now()+1100;$('#coach').classList.add('ok');sfx('blip');}
+}
+$('#coach').addEventListener('click',e=>{const b=e.target.closest('[data-tut]');if(!b||!G||!G.tut)return;const a=b.dataset.tut,T=G.tut;
+  if(a==='exit'){$('#coach').classList.add('hide');toMenu();}
+  else if(a==='play'){$('#coach').classList.add('hide');startGame({...menuOpts});}
+  else if(a==='skip'&&!T.okT)tutGo(T.i+1);
+  else if(a==='show'){const m=TUT[T.i].show(T.steps[T.i]);if(m){CAM.x=m.x;CAM.y=m.y;CAM.z=Math.max(CAM.z,1.2);clampCam();}}});
+$('#bTrain').onclick=()=>{initAudio();if(AC&&AC.state==='suspended')AC.resume();startTutorial();};
 
 </script>
 </body>

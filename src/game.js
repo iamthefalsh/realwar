@@ -475,7 +475,7 @@ function update(dt){
   if((G.terrT-=dt)<=0){G.terrT=.25;terrTick(.25);}
   if((G.econT-=dt)<=0){G.econT=.5;econTick(.5);}
   if(G.over)return;
-  if(!G.mp){aiTick(2,dt);if(G.demo)aiTick(1,dt);}
+  if(!G.mp){if(!(G.tut&&G.tut.calm))aiTick(2,dt);if(G.demo)aiTick(1,dt);}
   if(G.units.some(u=>u.dead)){G.units=G.units.filter(u=>!u.dead);
     const n=G.sel.length;G.sel=G.sel.filter(u=>!u.dead);if(G.sel.length!==n)G.selDirty=true;
     for(const d of G.divs.slice()){const m=d.units.length;d.units=d.units.filter(u=>!u.dead);if(d.units.length!==m)G.divDirty=true;if(!d.units.length&&!(d.team!==1&&d.retreating))disband(d);}}

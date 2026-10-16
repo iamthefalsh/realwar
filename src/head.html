@@ -173,6 +173,35 @@ details li{margin:5px 0}
 .inp:focus{border-color:#3ea6ff}
 .mpst{min-height:38px;margin-top:12px;font-size:13px;color:#bfe3ff;font-weight:600}
 #mpScr,#mpScr *{touch-action:manipulation}
+.row2{display:flex;gap:8px;margin-top:8px}.row2 .sec{margin-top:0}
+/* training coach */
+#coach{position:absolute;left:8px;right:116px;top:calc(env(safe-area-inset-top) + 148px);padding:11px 12px;pointer-events:auto;border-color:rgba(255,209,102,.45);animation:tin .3s}
+#coach .cs{display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:800;letter-spacing:1.4px;color:#ffd166;margin-bottom:4px}
+#coach .cs span{display:flex;gap:6px;align-items:center}#coach .bar{width:60px;height:4px;border-radius:2px;background:#2a323b;overflow:hidden}#coach .bar i{display:block;height:100%;background:#ffd166}
+#coach b{display:block;font-size:15px;margin-bottom:3px}#coach p{margin:0;font-size:13px;color:#d6e0ea;line-height:1.35}
+#coach .ca{display:flex;gap:6px;margin-top:9px;justify-content:flex-end}#coach .ca button{min-height:34px;padding:0 12px;font-size:12px}
+#coach.ok{border-color:#7be39a}#coach.ok b::after{content:"  ✓";color:#7be39a}
+#coach .lnk{background:none;border:0;color:#8aa0b6;font-weight:700;font-size:11px;letter-spacing:.5px;padding:0}
+.tutHL{position:relative;z-index:2;box-shadow:0 0 0 2px #ffd166,0 0 22px rgba(255,209,102,.8)!important;animation:hl 1.1s ease-in-out infinite}
+@keyframes hl{50%{box-shadow:0 0 0 3px #ffd166,0 0 34px rgba(255,209,102,1)}}
+/* controls help */
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;text-align:left;font-size:13px;align-items:center}
+.keys kbd,.tab kbd{display:inline-block;min-width:20px;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-bottom-width:2px;font:700 11px system-ui,sans-serif;color:#e8eef5;text-align:center;white-space:nowrap}
+.keys span{color:#c3d0dc}.keys h4{grid-column:1/-1;margin:10px 0 2px;font-size:11px;letter-spacing:1.4px;color:#8aa0b6}
+#helpScr .box{max-width:560px}
+.tab kbd{display:none;position:absolute;top:4px;right:6px;min-width:0;padding:0 4px;font-size:9px;opacity:.75}
+.pconly{display:none}
+@media (hover:hover) and (pointer:fine){.tab kbd{display:inline-block}.pconly{display:block}}
+/* desktop layout */
+@media (min-width:900px){
+  #panel{left:auto;right:12px;top:calc(env(safe-area-inset-top) + 150px);bottom:84px;width:410px;max-height:none}
+  #place{left:50%;right:auto;transform:translateX(-50%);width:540px;bottom:84px;margin:0}
+  #tabs{left:50%;right:auto;transform:translateX(-50%);width:640px;bottom:10px;padding:6px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(7,10,13,.9)}
+  #mini{right:auto;left:12px;top:auto;bottom:12px}
+  #fab{right:auto;left:12px;bottom:236px}
+  #coach{right:auto;left:12px;width:430px}
+  #divBar,#resBar{right:auto;max-width:calc(100vw - 440px)}
+}
 #warBan{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:6}
 #warBan h1{margin:0;font-size:46px;font-weight:900;letter-spacing:8px;color:#ff4f5e;text-shadow:0 0 30px rgba(255,79,94,.6),0 4px 0 #5f0d16;animation:war 3.2s ease-out forwards}
 #warBan p{margin:6px 0 0;font-weight:800;letter-spacing:3px;color:#ffd3d7;animation:war 3.2s ease-out forwards}
@@ -202,6 +231,7 @@ details li{margin:5px 0}
   </div>
   <div id="panel" class="glass hide"></div>
   <div id="place" class="glass hide"></div>
+  <div id="coach" class="glass hide"></div>
   <nav id="tabs"></nav>
 </div>
 <div id="warBan" class="hide"></div>
@@ -215,6 +245,7 @@ details li{margin:5px 0}
     <div class="opt"><label>PREPARATION BEFORE WAR</label><div class="seg" id="sPrep"><button data-v="0">None</button><button data-v="2">2 years</button><button data-v="5" class="on">5 years</button></div></div>
     <button class="big" id="bStart">PLAY VS AI</button>
     <button class="big online" id="bOnline">PLAY ONLINE</button>
+    <div class="row2"><button class="sec" id="bTrain">Training</button><button class="sec" id="bHelp">Controls</button></div>
     <details>
       <summary>How to play</summary>
       <ul>
@@ -246,11 +277,45 @@ details li{margin:5px 0}
   </div>
 </div>
 
+<div id="helpScr" class="screen hide" style="z-index:12">
+  <div class="box glass">
+    <h2 class="res" style="font-size:26px;color:#e8eef5">CONTROLS</h2>
+    <div class="keys">
+      <h4>MOUSE</h4>
+      <kbd>Left click</kbd><span>Select a unit, city or building</span>
+      <kbd>Left drag</kbd><span>Box-select units (hold Shift to add)</span>
+      <kbd>Double click</kbd><span>Select the whole division, or every unit of that type on screen</span>
+      <kbd>Right click</kbd><span>Move there, or attack the enemy you click</span>
+      <kbd>Right / middle drag</kbd><span>Move the map</span>
+      <kbd>Scroll</kbd><span>Zoom</span>
+      <h4>KEYBOARD</h4>
+      <kbd>W A S D</kbd><span>Move the map (arrow keys work too)</span>
+      <kbd>+ / −</kbd><span>Zoom in / out</span>
+      <kbd>Ctrl + A</kbd><span>Select your whole army</span>
+      <kbd>Ctrl + 1–9</kbd><span>Save the selection as a control group</span>
+      <kbd>1–9</kbd><span>Select a group (press twice to jump to it)</span>
+      <kbd>F</kbd><span>Form a division from the selection</span>
+      <kbd>X</kbd><span>Hold position · <kbd>R</kbd> Retreat · <kbd>T</kbd> Refuel</span>
+      <kbd>Q B M G P</kbd><span>Army, Build, Market, World, People tabs</span>
+      <kbd>C</kbd><span>Jump to your capital</span>
+      <kbd>Z</kbd><span>Game speed (vs AI)</span>
+      <kbd>Space</kbd><span>Pause · <kbd>Esc</kbd> cancel / close · <kbd>?</kbd> this screen</span>
+      <h4>TOUCH</h4>
+      <kbd>Tap</kbd><span>Select, then tap the map to move or tap an enemy to attack</span>
+      <kbd>Drag / pinch</kbd><span>Move the map / zoom</span>
+      <kbd>Hold + drag</kbd><span>Box-select units</span>
+    </div>
+    <button class="big" id="bHelpClose">GOT IT</button>
+  </div>
+</div>
+
 <div id="pauseScr" class="screen hide">
   <div class="box glass">
     <h2 class="res" style="font-size:28px">PAUSED</h2>
     <button class="big" id="bResume">RESUME</button>
     <button class="sec" id="bSound">Sound: ON</button>
+    <button class="sec" id="bHelp2">Controls</button>
+    <button class="sec pconly" id="bEdge">Edge scrolling: ON</button>
     <button class="sec" id="bRestart">Restart</button>
     <button class="sec" id="bQuit">Main menu</button>
   </div>
