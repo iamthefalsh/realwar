@@ -3,7 +3,7 @@
 // The match runs on the server. This client only shows the server's state and sends orders.
 // Each player always sees themselves as team 1 (blue, base at the bottom): for player 2 every
 // position, cell and team number is mirrored when it arrives and mirrored back when sent.
-const MP_DEFAULT_SERVER='realwar.zerapagamentos.workers.dev'; // the Cloudflare Worker that runs online matches
+const MP_DEFAULT_SERVER=(typeof window!=='undefined'&&window.RW_TEST_SERVER)||'realwar.zerapagamentos.workers.dev'; // the Cloudflare Worker that runs online matches
 const MP={ws:null,lobby:null,state:'off',team:1,flip:false,room:'',key:'',opp:'',me:'',units:new Map(),bmap:new Map(),divSig:'',retry:0,pingT:null,lpT:null,lastMsg:0,ping:0,WPX:0,HPX:0,N:0};
 const mpServer=()=>(localStorage.getItem('rw_server')||MP_DEFAULT_SERVER).trim();
 // accepts "host", "https://host/", "wss://host/lobby"…: keeps scheme + host only
@@ -23,17 +23,21 @@ const MX=x=>MP.flip?MP.WPX-x:x,MY=y=>MP.flip?MP.HPX-y:y,MA=a=>MP.flip?wrapA(a+Ma
 
 // ---------- lobby ----------
 function openMP(){$('#menu').classList.add('hide');$('#endScr').classList.add('hide');$('#mpScr').classList.remove('hide');
-  $('#mpName').value=localStorage.getItem('rw_name')||'';$('#mpSrv').value=mpServer();$('#mpSrvBox').open=!mpServer();
-  mpStatus(mpServer()?'Tap Find match to enter the queue':'Paste the server address below first');}
+  $('#mpName').value=localStorage.getItem('rw_name')||'';const custom=localStorage.getItem('rw_server')||'';$('#mpSrv').value=custom;$('#mpSrvBox').open=false;
+  mpStatus('Tap Find match to enter the queue');}
 async function mpFind(){
   if(MP.state==='queue'||MP.state==='checking')return mpCancel();
   const name=$('#mpName').value.trim()||'Commander';localStorage.setItem('rw_name',name);
-  const srv=$('#mpSrv').value.trim();if(srv)localStorage.setItem('rw_server',srv);else localStorage.removeItem('rw_server');
-  const base=wsBase();if(!base)return mpStatus('Paste the server address below first');
+  const srv=$('#mpSrv').value.trim();
+  if(srv&&wsBase(srv)!==wsBase(MP_DEFAULT_SERVER))localStorage.setItem('rw_server',srv);else localStorage.removeItem('rw_server');
   initAudio();if(AC&&AC.state==='suspended')AC.resume();
-  MP.state='checking';$('#bFind').textContent='CANCEL';mpStatus('Checking the server…');
-  const bad=await mpCheck();if(MP.state!=='checking')return;
-  if(bad){MP.state='off';$('#bFind').textContent='FIND MATCH';$('#mpSrvBox').open=true;return mpStatus(bad);}
+  MP.state='checking';$('#bFind').textContent='CANCEL';mpStatus('Connecting to the game server…');
+  let bad=await mpCheck();if(MP.state!=='checking')return;
+  // a saved custom address that doesn't work falls back to the built-in server
+  if(bad&&localStorage.getItem('rw_server')){const b2=await mpCheck(MP_DEFAULT_SERVER);if(MP.state!=='checking')return;
+    if(!b2){localStorage.removeItem('rw_server');$('#mpSrv').value='';bad='';}}
+  if(bad){MP.state='off';$('#bFind').textContent='FIND MATCH';return mpStatus(bad);}
+  const base=wsBase();
   let ws;try{ws=new WebSocket(base+'/lobby');}catch(e){MP.state='off';$('#bFind').textContent='FIND MATCH';return mpStatus('That server address is not valid');}
   MP.lobby=ws;MP.state='queue';$('#bFind').textContent='CANCEL';mpStatus('Connecting…');
   ws.onopen=()=>ws.send(JSON.stringify({t:'queue',name}));
