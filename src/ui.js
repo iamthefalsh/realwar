@@ -9,6 +9,7 @@ function alerts(){
   if(E.starving&&!(A.food>G.time)){A.food=G.time+30;toast('Your people are starving! Build farms or buy food','bad','food');}
   if(E.res.oil<4&&G.units.some(u=>u.team===1&&UT[u.type].fuel)&&!(A.oil>G.time)){A.oil=G.time+35;toast('Out of petrol! Vehicles and planes cannot refuel','bad','oil');}
   if(E.res.guns<UT.inf.cost.guns&&!(A.guns>G.time)&&G.time>20){A.guns=G.time+45;toast('No guns for new infantry. Build an Arms Factory or buy guns','bad','guns');voice(1,'noguns');}
+  if(sitesOf(1).length&&!buildersOf(1).length&&!(A.bld>G.time)&&!G.cities.some(c=>c.owner===1&&c.queue.includes('eng'))){A.bld=G.time+25;toast('Construction stopped: you have no builders. Recruit one in BUILD','bad','eng');}
   for(const c of G.cities)if(c.owner===1&&c.panic>.6&&!(A['p'+c.id]>G.time)){A['p'+c.id]=G.time+30;voice(1,'attack',{city:c.name});}
 }
 const TIPS=[[4,'Open BUILD to place farms, homes and mines on resource deposits','t_build'],[16,'Infantry need guns. An Arms Factory turns iron + wood into guns','guns'],
@@ -41,6 +42,7 @@ function setSel(list){for(const u of G.sel)u.sel=false;G.sel=list.filter(u=>!u.d
 function openCity(c){setSel([]);G.tab=null;G.selCity=c;G.selDirty=true;sfx('blip');}
 function onTap(sx,sy,long){
   if(!G||G.demo||G.over)return;const [wx,wy]=s2w(sx,sy);
+  if(G.target){aimAt(wx,wy);return;}
   if(G.place){placeAt(wx,wy);return;}
   if(!G.sel.length&&!long){const c=pickCity(wx,wy,13*clamp(1/CAM.z,.75,2.2));if(c){openCity(c);return;}}
   const u=pickUnit(wx,wy,1);
@@ -55,6 +57,7 @@ function onTap(sx,sy,long){
     G.markers.push({x:tx,y:ty,life:.6,max:.6,c:e?'255,110,110':'255,255,255'});sfx('blip');return;}
   const b=pickBld(wx,wy);if(b){setSel([]);G.tab=null;G.selBld=b;G.selDirty=true;sfx('blip');return;}
   const c=pickCity(wx,wy);if(c){openCity(c);return;}
+  const fc=pickForeign(wx,wy);if(fc){setSel([]);G.tab='world';G.country=fc;G.selDirty=true;sfx('blip');return;}
   if(G.selCity||G.selBld||G.tab){clearFocus();G.tab=null;G.country=null;G.selDirty=true;}
 }
 function boxSelect(g,add){const x0=Math.min(g.sx,g.ex),x1=Math.max(g.sx,g.ex),y0=Math.min(g.sy,g.ey),y1=Math.max(g.sy,g.ey);
@@ -66,6 +69,7 @@ function orderAt(sx,sy){const [wx,wy]=s2w(sx,sy),e=pickUnit(wx,wy,2),tx=e?e.x:wx
   doCmd('move',{ids:G.sel.map(u=>u.id),x:tx,y:ty,tid:e?e.id:0});G.markers.push({x:tx,y:ty,life:.6,max:.6,c:e?'255,110,110':'255,255,255'});sfx('blip');}
 function leftClick(sx,sy,shift){
   if(!G||G.demo||G.over)return;const [wx,wy]=s2w(sx,sy);
+  if(G.target){aimAt(wx,wy);return;}
   if(G.place){placeAt(wx,wy);return;}
   const u=pickUnit(wx,wy,1);
   if(u){if(shift){const has=G.sel.includes(u);setSel(has?G.sel.filter(x=>x!==u):[...G.sel,u]);}else setSel([u]);sfx('blip');return;}
@@ -73,10 +77,11 @@ function leftClick(sx,sy,shift){
   const c=pickCity(wx,wy,13*clamp(1/CAM.z,.75,2.2));if(c){openCity(c);return;}
   const b=pickBld(wx,wy);if(b){setSel([]);G.tab=null;G.selBld=b;G.selDirty=true;sfx('blip');return;}
   const c2=pickCity(wx,wy);if(c2){openCity(c2);return;}
+  const fc=pickForeign(wx,wy);if(fc){setSel([]);G.tab='world';G.country=fc;G.selDirty=true;sfx('blip');return;}
   if(G.sel.length)setSel([]);
   if(G.selCity||G.selBld||G.tab){clearFocus();G.tab=null;G.country=null;G.selDirty=true;}
 }
-function rightClick(sx,sy){if(!G||G.demo||G.over)return;if(G.place){endPlace();return;}if(G.sel.length)orderAt(sx,sy);}
+function rightClick(sx,sy){if(!G||G.demo||G.over)return;if(G.target){endAim();return;}if(G.place){endPlace();return;}if(G.sel.length)orderAt(sx,sy);}
 function dblPick(sx,sy){if(!G||G.demo||G.place)return;const [wx,wy]=s2w(sx,sy),u=pickUnit(wx,wy,1);if(!u)return;
   if(u.div)setSel(u.div.units);else setSel(G.units.filter(o=>o.team===1&&o.type===u.type&&!o.landed&&(([x,y])=>x>=0&&y>=0&&x<=VW&&y<=VH)(w2s(o.x,o.y))));sfx('blip');}
 const isMouse=e=>e.pointerType==='mouse';
@@ -147,7 +152,19 @@ function placeAt(wx,wy){const t=G.place.type,W=G.W,cx=Math.floor(wx/CELL),cy=Mat
   for(let y=cy-R;y<=cy+R;y++)for(let x=cx-R;x<=cx+R;x++){if(x<0||y<0||x>=W||y>=G.H)continue;const i=y*W+x;if(placeErr(1,t,i))continue;const d=(x+.5-wx/CELL)**2+(y+.5-wy/CELL)**2;if(d<bd){bd=d;best=i;}}
   if(best<0){toast(placeErr(1,t,clamp(cy,0,G.H-1)*W+clamp(cx,0,W-1)),'bad');return;}
   const e=placeOne(t,best);if(!e)G.markers.push({x:(best%W+.5)*CELL,y:((best/W|0)+.5)*CELL,life:.5,max:.5,c:'123,227,154'});}
-function renderPlace(){const P=$('#place');if(!G.place){P.classList.add('hide');return;}const t=G.place.type,B=BT[t];P.classList.remove('hide');
+function startAim(k){if(G.peace)return toast('You cannot strike in peacetime','bad');if(stock(1,k)<1)return toast(`No ${STRIKE[k].n.toLowerCase()} ready`,'bad');
+  G.place=null;setSel([]);G.tab=null;G.target={k,pt:null};G.selDirty=true;sfx('alert');}
+function aimAt(wx,wy){G.target.pt={x:clamp(wx,0,G.W*CELL),y:clamp(wy,0,G.H*CELL)};renderPlace();sfx('blip');}
+function fireAim(){const T=G.target;if(!T||!T.pt)return;if(T.k==='nuke'&&!confirm('Launch a NUCLEAR strike? Every nation will turn against you, and your own people will be horrified.'))return;
+  const r=doCmd('launch',{k:T.k,x:T.pt.x,y:T.pt.y});G.target=null;G.selDirty=true;if(!r)vib(80);}
+function endAim(){G.target=null;G.selDirty=true;}
+function renderPlace(){const P=$('#place');
+  if(G.target){const T=G.target,S=STRIKE[T.k];P.classList.remove('hide');P.classList.add('aim');
+    P.innerHTML=`<div class="pi"><b>${svgI(S.ico)}${S.n} <span class="tg${T.k==='nuke'?' e':''}">${stock(1,T.k)} ready</span></b><small>${T.pt?'Target locked. Launch, or '+(IS_PC?'click':'tap')+' elsewhere to move it':(IS_PC?'Click':'Tap')+' the map to choose a target'}</small></div>
+    <button class="btn" id="bAimX">Cancel</button><button class="btn ${T.k==='nuke'?'red':'pri'}" id="bAimGo" ${T.pt?'':'disabled'}>LAUNCH</button>`;
+    $('#bAimX').onclick=endAim;$('#bAimGo').onclick=fireAim;return;}
+  P.classList.remove('aim');
+  if(!G.place){P.classList.add('hide');return;}const t=G.place.type,B=BT[t];P.classList.remove('hide');
   P.innerHTML=`<div class="pi"><b>${svgI(B.ico)}${B.n} <span data-cost="bld:${t}"></span></b><small>${t==='wall'?'Drag to paint walls · pinch to move the map':B.d+' · tap a green spot'} · <span data-v="placed">0</span> built</small></div><button class="btn pri" id="bDone">Done</button>`;
   $('#bDone').onclick=endPlace;liveUpdate(P);}
 
@@ -167,7 +184,8 @@ function renderResBar(){
 $('#resBar').addEventListener('click',e=>{const b=e.target.closest('.rc');if(!b)return;setSel([]);G.place=null;G.country=null;G.tab=b.dataset.go;G.selDirty=true;});
 function uiTick(){
   const E=G.E[1];
-  $('#mVal').textContent='$'+fmt(E.money);$('#mInc').textContent=fmtR(E.tax)+'/s';
+  $('#mVal').textContent='$'+fmt(E.money);$('#mInc').textContent=fmtR(E.tax+(E.biz||0))+'/s';
+  const sc=document.querySelector('#divBar .strike');if(sc)sc.classList.toggle('hide',!siloOf(1).length);liveUpdate($('#divBar'));
   const p=G.terrPct[1]*100,q=G.terrPct[2]*100;$('#tP').textContent=p.toFixed(0)+'%';$('#tE').textContent=q.toFixed(0)+'%';
   $('#tbP').style.width=p+'%';$('#tbE').style.width=q+'%';$('#tDate').textContent=dateStr(G.time);
   const ph=$('#phase');
@@ -198,9 +216,14 @@ function liveVal(k){const a=k.split(':'),E=G.E[1],c=CKEYS.has(a[0])?G.countries[
     case 'cpop':{const ct=G.cities[+a[1]];return fmt(ct.pop)+' / '+fmt(ct.cap);}
     case 'cmood':{const ct=G.cities[+a[1]],m=cityMood(ct);return ct.panic>.4?'Panic!':m>65?'Happy':m>40?'Content':m>22?'Unhappy':'Furious';}
     case 'placed':return String(G.place?G.place.n:0);
-    case 'beff':{const b=G.selBld;return b?(b.prog<1?'Building '+Math.round(b.prog*100)+'%':Math.round(b.eff*100)+'%'):'';}
+    case 'beff':{const b=G.selBld;return b?(b.prog<1?'Building '+Math.round(b.prog*100)+'%':BT[b.type].out?Math.round(b.eff*100)+'%':b.hp<b.maxHp*.5?'Damaged':'Online'):'';}
+    case 'bars':{const b=G.selBld;return b&&b.ars?`${b.ars.missile}M · ${b.ars.nuke}N`:'0M · 0N';}
+    case 'bsite':{const b=G.selBld;if(!b)return '';const n=G.units.filter(u=>u.type==='eng'&&u.team===b.owner&&u.bj&&u.bj.b===b).length;
+      return `Materials ${Math.round(b.mat*100)}% · Built ${Math.round(b.prog*100)}% · ${n?n+' builder'+(n>1?'s':'')+' working':buildersOf(1).length?'waiting for a builder':'no builders! Recruit one at a city'}`;}
+    case 'ars':{const b=G.blds.find(o=>o.id===+a[1]);return b&&b.ars?b.ars[a[2]]+' ready':'';}
+    case 'aq':{const b=G.blds.find(o=>o.id===+a[1]);return b&&b.aq&&b.aq.length?b.aq.map((k,i)=>STRIKE[k].n+(i===0?` (${Math.round(100*b.ap/STRIKE[k].time)}%)`:'')).join(', '):'empty';}
     case 'bhp':{const b=G.selBld;return b?Math.round(b.hp)+' / '+b.maxHp:'';}
-    case 'bout':{const b=G.selBld;if(!b||!BT[b.type].out)return '';return Object.entries(BT[b.type].out).map(([r,v])=>`+${(v*b.eff).toFixed(2)} ${RI[r].n.toLowerCase()}/s`).join(' ');}
+    case 'bout':{const b=G.selBld;if(!b||!BT[b.type].out)return '';return Object.entries(BT[b.type].out).map(([r,v])=>r==='$'?`+$${(v*b.eff).toFixed(1)}/s`:`+${(v*b.eff).toFixed(2)} ${RI[r].n.toLowerCase()}/s`).join(' ');}
     case 'warin':return durStr(Math.max(0,G.peaceEnd-G.time));
     case 'nu':return String(G.units.filter(u=>u.team===1&&u.type===a[1]).length);
   }return ''}
@@ -215,9 +238,11 @@ function liveEn(k){const a=k.split(':'),E=G.E[1];
     case 'sign':return !canSign(G.countries[+a[1]],a[2],1);
     case 'hire':{const c=G.countries[+a[1]],n=+a[2];return !embargo(c,1)&&c.mpA>=n&&E.money>=hireP(c,1)*n/100;}
     case 'gift':return a[2]==='gold'?E.res.gold>=5:E.money>=250;
+    case 'arm':{const b=G.blds.find(o=>o.id===+a[1]);return !!b&&b.aq.length<3&&!missing(E,STRIKE[a[2]].cost);}
+    case 'aim':return stock(1,a[1])>0&&!G.peace;
   }return true}
 function liveCost(k){const a=k.split(':'),E=G.E[1];
-  if(a[0]==='bld')return costHTML(BT[a[1]].cost,E);if(a[0]==='unit')return costHTML(UT[a[1]].cost,E);if(a[0]==='treaty')return costHTML(TREATY[a[1]].cost,E);return ''}
+  if(a[0]==='bld')return costHTML(BT[a[1]].cost,E);if(a[0]==='strike')return costHTML(STRIKE[a[1]].cost,E);if(a[0]==='unit')return costHTML(UT[a[1]].cost,E);if(a[0]==='treaty')return costHTML(TREATY[a[1]].cost,E);return ''}
 function liveUpdate(root){if(!root||!G)return;
   for(const el of root.querySelectorAll('[data-v]')){const v=liveVal(el.dataset.v),t=Array.isArray(v)?v[0]:v;if(el.textContent!==t)el.textContent=t;
     if(Array.isArray(v)){el.classList.toggle('p',v[1]==='p');el.classList.toggle('n',v[1]==='n');}}
@@ -239,7 +264,7 @@ function drawSpark(cv2,h){const w=cv2.width=112,hh=cv2.height=48,g=cv2.getContex
 const X_BTN=`<button class="x" data-act="close">${svgI('x')}</button>`;
 function selInfo(){const cnt={};for(const u of G.sel)cnt[u.type]=(cnt[u.type]||0)+1;const d=G.sel[0]&&G.sel[0].div;
   const isDiv=!!d&&G.sel.length===d.units.length&&G.sel.every(u=>u.div===d);return {cnt,div:isDiv?d:null};}
-function panelKey(){if(G.place)return '';if(G.sel.length)return 'sel';if(G.selCity)return 'city'+G.selCity.id;if(G.selBld)return 'bld'+G.selBld.id;if(G.tab==='world'&&G.country)return 'country'+G.country.id;return G.tab?'tab'+G.tab:''}
+function panelKey(){if(G.place||G.target)return '';if(G.sel.length)return 'sel';if(G.selCity)return 'city'+G.selCity.id;if(G.selBld)return 'bld'+G.selBld.id;if(G.tab==='world'&&G.country)return 'country'+G.country.id;return G.tab?'tab'+G.tab:''}
 function renderPanel(){
   const P=$('#panel'),k=panelKey();renderTabs();renderPlace();
   if(!k){P.classList.add('hide');P.innerHTML='';G.pk='';return;}
@@ -267,10 +292,16 @@ function cityPanel(c){const mine=c.owner===1,can=CAN_BUILD[c.type];
    <div class="hint">Units cost money, resources and manpower. Infantry need guns.</div>`;}
 function bldPanel(b){const B=BT[b.type],mine=b.owner===1;
   return `<div class="ph"><div class="pt">${svgI(B.ico)}${B.n}<small>${b.owner===1?'Yours':b.owner===2?'Enemy':'Neutral'}</small></div>${X_BTN}</div>
-  <div class="kv"><div><b data-v="beff"></b><span>${B.out?'OUTPUT':'STATUS'}</span></div><div><b data-v="bhp"></b><span>CONDITION</span></div><div><b>${B.work?fmt(B.work):b.type==='house'?'+'+fmt(B.cap):'-'}</b><span>${B.work?'WORKERS':'HOMES'}</span></div></div>
+  <div class="kv"><div><b data-v="beff"></b><span>${B.out&&b.prog>=1?'OUTPUT':'STATUS'}</span></div><div><b data-v="bhp"></b><span>CONDITION</span></div>${b.type==='silo'?'<div><b data-v="bars"></b><span>STOCK</span></div>':`<div><b>${B.work?fmt(B.work):b.type==='house'?'+'+fmt(B.cap):'-'}</b><span>${B.work?'WORKERS':b.type==='house'?'HOMES':'STAFF'}</span></div>`}</div>
   ${B.out?`<div class="hint"><span data-v="bout"></span>${B.inp?' · uses '+Object.entries(B.inp).map(([r,v])=>v+' '+RI[r].n.toLowerCase()+'/s').join(', '):''}</div><div class="hint">Output drops when you lack workers, inputs or your people are unhappy.</div>`:''}
   ${b.type==='house'&&b.city?`<div class="hint">Homes for the people of ${b.city.name}.</div>`:''}
+  ${b.prog<1?`<div class="tr" style="margin-top:8px"><div><b>Under construction</b><small><span data-v="bsite"></span></small></div></div>`:''}
+  ${b.type==='silo'&&mine&&b.prog>=1?siloBlock(b):''}
   ${mine?`<div class="acts" style="margin-top:10px"><button data-act="demolish">Demolish (25% refund)</button></div>`:''}`;}
+function siloBlock(b){return `<div class="sh">ARSENAL</div>
+  ${Object.entries(STRIKE).map(([k,S])=>`<div class="tr"><div><b>${svgI(S.ico,'ii')} ${S.n} <span class="tg${k==='nuke'?' e':''}" data-v="ars:${b.id}:${k}"></span></b><small>${S.d}. Builds in ${S.time}s.</small><span data-cost="strike:${k}"></span></div>
+   <div class="tbs" style="flex-direction:column"><button class="tb" data-act="arm" data-k="${k}" data-en="arm:${b.id}:${k}">BUILD</button><button class="tb ${k==='nuke'?'sell':'buy'}" data-act="aim" data-k="${k}" data-en="aim:${k}">LAUNCH</button></div></div>`).join('')}
+  <div class="hint">Queue: <span data-v="aq:${b.id}"></span>. Enemy anti-air near the target may shoot missiles down.</div>`;}
 const TABP={
  army(){const E=G.E[1],cities=G.cities.filter(c=>c.owner===1);
   return `<div class="ph"><div class="pt">${svgI('t_army')}Military<small>${G.nat[1].full}</small></div>${X_BTN}</div>
@@ -282,8 +313,10 @@ const TABP={
   <div class="sh">CITIES · TAP TO RECRUIT</div>${cities.map(c=>`<button class="tr" style="width:100%;text-align:left;border:0" data-act="city" data-id="${c.id}"><div><b>${c.name}</b><small>${CITY_NAME[c.type]} · ${CAN_BUILD[c.type].map(t=>UT[t].name).join(', ')}</small></div><span class="ok">${c.queue.length?c.queue.length+' queued':'Open'}</span></button>`).join('')}
   <div class="hint">Manpower comes from your citizens. Raise conscription for more soldiers, or hire foreign volunteers in <b>World</b>.</div>`;},
  build(){const cnt={};for(const b of G.blds)if(b.owner===1)cnt[b.type]=(cnt[b.type]||0)+1;let wc=0;for(let i=0;i<G.W*G.H;i++)if(G.wall[i]===1)wc++;cnt.wall=wc;
+  const nb=buildersOf(1).length,ns=sitesOf(1).length;
   return `<div class="ph"><div class="pt">${svgI('t_build')}Construction<small><span data-v="fill"></span> staffed</small></div>${X_BTN}</div>
-  <div class="cards">${BTYPES.map(k=>{const B=BT[k];return `<button class="card" data-act="place" data-t="${k}" data-en="bld:${k}"><div class="ct">${svgI(B.ico)}<span>${B.n}</span><em>×${cnt[k]||0}</em></div><span data-cost="bld:${k}"></span><small>${B.d}${B.out?'<br>+'+Object.entries(B.out).map(([r,v])=>v+' '+RI[r].n.toLowerCase()).join(', ')+'/s · '+fmt(B.work)+' workers':''}</small></button>`}).join('')}</div>
+  <div class="tr"><div><b>${uIcon('eng')} ${nb} builder${nb===1?'':'s'} · ${ns} site${ns===1?'':'s'}</b><small>${nb?'Builders carry materials from your cities and build each site.':'You have no builders! Recruit one at any city.'}</small></div><button class="btn${nb?'':' pri'}" data-act="recruitB">+ Builder</button></div>
+  ${BCAT.map(([cat,keys])=>`<div class="sh">${cat.toUpperCase()}</div><div class="cards">${keys.map(k=>{const B=BT[k];return `<button class="card" data-act="place" data-t="${k}" data-en="bld:${k}"><div class="ct">${svgI(B.ico)}<span>${B.n}</span><em>×${cnt[k]||0}</em></div><span data-cost="bld:${k}"></span><small>${B.d}${B.out?'<br>+'+Object.entries(B.out).map(([r,v])=>r==='$'?'$'+v:v+' '+RI[r].n.toLowerCase()).join(', ')+'/s · '+fmt(B.work)+' workers':''}</small></button>`}).join('')}</div>`).join('')}
   <div class="hint">Workplaces need citizens. When you run short of workers, every building slows down, so build housing too.</div>`;},
  market(){return `<div class="ph"><div class="pt">${svgI('t_market')}Internal Market<small>prices move with supply</small></div>${X_BTN}</div>${qtySel()}
   ${RES.map(r=>`<div class="mrow">${svgI(r)}<div class="nm"><b>${RI[r].n} <span style="font-weight:600;color:#9fb3c8" data-v="mprice:${r}"></span></b><small><span data-v="res:${r}"></span> in stock · <i data-v="net:${r}"></i>/s</small></div><canvas class="spark" data-spark="${r}"></canvas>
@@ -351,15 +384,18 @@ $('#panel').addEventListener('click',e=>{
     case 'refuel':doCmd('refuel',{ids:ids()});toast('Heading to a city to refuel','','oil');return;
     case 'autoret':{const v=!G.sel.every(u=>u.retreatOn);doCmd('autoret',{ids:ids(),v});for(const u of G.sel)u.retreatOn=v;G.selDirty=true;return;}
     case 'place':return void startPlace(b.dataset.t);
+    case 'recruitB':{const c=G.cities.filter(c=>c.owner===1).sort((x,y)=>x.queue.length-y.queue.length)[0];if(c&&!doCmd('queue',{city:c.id,type:'eng'})){toast(`Builder recruiting in ${c.name}`,'good','eng');sfx('blip');}return;}
+    case 'arm':{const bd=G.selBld;if(bd&&!doCmd('arm',{id:bd.id,k:b.dataset.k})){sfx('build');liveUpdate($('#panel'));}return;}
+    case 'aim':return void startAim(b.dataset.k);
     case 'qty':G.qty=+b.dataset.q;G.selDirty=true;return;
     case 'mbuy':if(!doCmd('mbuy',{r:b.dataset.r,q:G.qty}))sfx('coin');liveUpdate($('#panel'));return;
     case 'msell':if(!doCmd('msell',{r:b.dataset.r,q:G.qty}))sfx('coin');liveUpdate($('#panel'));return;
     case 'country':G.country=G.countries[+b.dataset.id];G.selDirty=true;sfx('blip');return;
     case 'back':G.country=null;G.selDirty=true;return;
     case 'sign':if(!doCmd('sign',{c:c.id,k:b.dataset.k}))G.selDirty=true;return;
-    case 'cbuy':if(!doCmd('cbuy',{c:c.id,r:b.dataset.r,q:G.qty}))sfx('coin');liveUpdate($('#panel'));return;
-    case 'csell':if(!doCmd('csell',{c:c.id,r:b.dataset.r,q:G.qty}))sfx('coin');liveUpdate($('#panel'));return;
-    case 'hire':if(!doCmd('hire',{c:c.id,n:+b.dataset.n})){sfx('coin');toast(`Hired ${b.dataset.n} volunteers from ${c.name}`,'good','mp');}return;
+    case 'cbuy':if(!doCmd('cbuy',{c:c.id,r:b.dataset.r,q:G.qty})){sfx('coin');convoy(c);}liveUpdate($('#panel'));return;
+    case 'csell':if(!doCmd('csell',{c:c.id,r:b.dataset.r,q:G.qty})){sfx('coin');convoy(c);}liveUpdate($('#panel'));return;
+    case 'hire':if(!doCmd('hire',{c:c.id,n:+b.dataset.n})){sfx('coin');convoy(c);toast(`Hired ${b.dataset.n} volunteers from ${c.name}`,'good','mp');}return;
     case 'gift':if(!doCmd('gift',{c:c.id,k:b.dataset.k})){sfx('coin');toast(`${c.name} appreciates the gift`,'good','handshake');}return;
     case 'pol':doCmd('pol',{k:b.dataset.k,v:+b.dataset.pv});E.pol[b.dataset.k]=+b.dataset.pv;G.selDirty=true;sfx('blip');return;
     case 'war':if(G.peace){doCmd('war',{});G.selDirty=true;}return;
@@ -369,7 +405,7 @@ $('#panel').addEventListener('click',e=>{
 });
 function renderDivBar(){
   const ds=G.divs.filter(d=>d.team===1).sort((a,b)=>a.num-b.num);
-  $('#divBar').innerHTML=`<button class="chip" data-div="all">ALL ARMY</button><button class="chip" data-div="air">${uIcon('ftr')}AIR</button>`+
+  $('#divBar').innerHTML=`<button class="chip" data-div="all">ALL ARMY</button><button class="chip" data-div="air">${uIcon('ftr')}AIR</button><button class="chip" data-div="eng">${uIcon('eng')}BUILDERS <b data-v="nu:eng"></b></button><button class="chip strike hide" data-div="strike">${svgI('missile')}STRIKE</button>`+
     ds.map(d=>`<button class="chip" data-div="${d.id}" style="--c:${d.color}"><i></i>${d.short}<b>${d.units.length}</b></button>`).join('');
   updateDivLive();
 }
@@ -378,7 +414,8 @@ function updateDivLive(){const {div}=G.sel.length?selInfo():{div:null};
     const b=ch.querySelector('b');if(b){const d=G.divs.find(x=>String(x.id)===id);if(d)b.textContent=d.units.length;}}}
 let chipTap={id:null,t:0};
 $('#divBar').addEventListener('click',e=>{const ch=e.target.closest('.chip');if(!ch)return;const id=ch.dataset.div;let l;G.place=null;
-  if(id==='all')l=G.units.filter(u=>u.team===1&&!UT[u.type].air);else if(id==='air')l=G.units.filter(u=>u.team===1&&UT[u.type].air);
+  if(id==='strike'){const sb=siloOf(1)[0];if(sb){setSel([]);G.tab=null;G.selBld=sb;G.selDirty=true;CAM.x=sb.x;CAM.y=sb.y;clampCam();}return;}
+  if(id==='all')l=G.units.filter(u=>u.team===1&&!UT[u.type].air&&u.type!=='eng');else if(id==='air')l=G.units.filter(u=>u.team===1&&UT[u.type].air);else if(id==='eng')l=G.units.filter(u=>u.team===1&&u.type==='eng');
   else{const d=G.divs.find(x=>String(x.id)===id);if(!d)return;l=d.units;}
   setSel(l);sfx('blip');updateDivLive();
   const now=performance.now();if(chipTap.id===id&&now-chipTap.t<400){const c=centroid(l);if(c){CAM.x=c.x;CAM.y=c.y;clampCam();}}chipTap={id,t:now};

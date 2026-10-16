@@ -10,7 +10,7 @@ function zoomBy(f,sx=VW/2,sy=VH/2){if(!G)return;const [wx,wy]=s2w(sx,sy);CAM.z=c
 function openTabKey(k){G.place=null;const cur=!G.sel.length&&!G.selCity&&!G.selBld?G.tab:null;setSel([]);G.tab=cur===k?null:k;if(k!=='world')G.country=null;G.selDirty=true;sfx('blip');}
 function mouseCursor(){
   if(!G||G.demo||hoverX<0){cv.style.cursor='';return;}
-  if(G.place){cv.style.cursor='crosshair';return;}
+  if(G.place||G.target){cv.style.cursor='crosshair';return;}
   const [wx,wy]=s2w(hoverX,hoverY);
   if(G.sel.length&&pickUnit(wx,wy,2)){cv.style.cursor='crosshair';return;}
   cv.style.cursor=pickUnit(wx,wy,1)||pickCity(wx,wy)||pickBld(wx,wy)?'pointer':'default';
@@ -30,11 +30,11 @@ addEventListener('keydown',e=>{
   if(!G||G.demo)return;
   if(k===' '){togglePause();e.preventDefault();return;}
   if(k==='escape'){if(shown('#pauseScr')){$('#bResume').click();return;}
-    if(G.place)endPlace();else if(G.sel.length)setSel([]);else if(G.selCity||G.selBld||G.tab){clearFocus();G.tab=null;G.country=null;G.selDirty=true;}return;}
+    if(G.target)endAim();else if(G.place)endPlace();else if(G.sel.length)setSel([]);else if(G.selCity||G.selBld||G.tab){clearFocus();G.tab=null;G.country=null;G.selDirty=true;}return;}
   if(G.over||shown('#pauseScr'))return;
   if(!ctrl&&['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)){KEYS.add(k);e.preventDefault();return;}
   if(k==='+'||k==='='){zoomBy(1.25);return;}if(k==='-'||k==='_'){zoomBy(1/1.25);return;}
-  if(ctrl&&k==='a'){e.preventDefault();setSel(G.units.filter(u=>u.team===1&&!UT[u.type].air));return;}
+  if(ctrl&&k==='a'){e.preventDefault();setSel(G.units.filter(u=>u.team===1&&!UT[u.type].air&&u.type!=='eng'));return;}
   if(/^[1-9]$/.test(k)){e.preventDefault();
     if(ctrl){GROUPS[k]=G.sel.map(u=>u.id);toast(`Group ${k} saved (${G.sel.length} units)`);return;}
     const l=(GROUPS[k]||[]).map(id=>G.units.find(u=>u.id===id)).filter(u=>u&&!u.dead);
@@ -43,6 +43,7 @@ addEventListener('keydown',e=>{
   if(ctrl||e.altKey)return;
   const ids=G.sel.map(u=>u.id);
   switch(k){
+    case 'enter':if(G.target&&G.target.pt)fireAim();return;
     case 'f':if(ids.length){doCmd('form',{ids});G.selDirty=true;}return;
     case 'x':if(ids.length)doCmd('stop',{ids});return;
     case 'r':if(ids.length){doCmd('retreat',{ids});toast('Falling back');}return;
@@ -55,6 +56,11 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>KEYS.delete(e.key.toLowerCase()));
 addEventListener('blur',()=>{KEYS.clear();hoverX=-1;});
+// interface size: Small / Normal / Large, remembered on this device
+function setUiSize(v){v=String(v||localStorage.getItem('rw_ui')||'1');localStorage.setItem('rw_ui',v);document.documentElement.style.setProperty('--uiz',v);
+  for(const id of ['#sUi','#sUi2'])for(const b of $(id).children)b.classList.toggle('on',b.dataset.v===v);if(G&&!G.demo)setTimeout(sizeMini,0);}
+for(const id of ['#sUi','#sUi2'])$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(b)setUiSize(b.dataset.v);});
+setUiSize();
 $('#bHelp').onclick=()=>toggleHelp(true);$('#bHelp2').onclick=()=>toggleHelp(true);$('#bHelpClose').onclick=()=>toggleHelp(false);
 $('#bEdge').textContent='Edge scrolling: '+(edgeScroll?'ON':'OFF');
 $('#bEdge').onclick=()=>{edgeScroll=!edgeScroll;localStorage.setItem('rw_edge',edgeScroll?'1':'0');$('#bEdge').textContent='Edge scrolling: '+(edgeScroll?'ON':'OFF');};

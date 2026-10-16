@@ -34,7 +34,7 @@ function findBuildSpot(T,type){
 // ================= AI: plays by the same rules as you =================
 // It only knows what its units have seen, notices threats after a delay,
 // and has a limited number of "taps" per second, like a human player.
-function aiState(T){return G.ai[T]||(G.ai[T]={think:1,strat:2,plane:4,econ:1.5,dip:5,wall:8,ap:2,mem:new Map(),bseen:new Set()})}
+function aiState(T){return G.ai[T]||(G.ai[T]={think:1,strat:2,plane:4,econ:1.5,dip:5,wall:8,stk:12,ap:2,mem:new Map(),bseen:new Set()})}
 const aiP=T=>(T===2&&!G.demo)?G.diff:{ap:.6,react:3,wave:1,err:.12,grace:150,think:1};
 function act(T){const S=aiState(T);if(S.ap<1)return false;S.ap-=1;return true}
 function known(T,airToo){const S=aiState(T),r=aiP(T).react,out=[];for(const m of S.mem.values()){if(G.time-m.first<r)continue;if(!airToo&&m.air)continue;out.push(m);}return out}
@@ -47,6 +47,7 @@ function aiTick(T,dt){
   if((S.econ-=dt)<=0){S.econ=2.5*k;aiEcon(T);}
   if((S.dip-=dt)<=0){S.dip=7*k;aiDiplomacy(T);}
   if((S.wall-=dt)<=0){S.wall=4*k;aiWalls(T);}
+  if((S.stk-=dt)<=0){S.stk=8*k;aiStrikes(T);}
 }
 function frontDist(c,T){let b=1e18;for(const o of G.cities)if(o.owner!==T)b=Math.min(b,dist2(c.x,c.y,o.x,o.y));return b}
 function aiProduce(T){
@@ -56,6 +57,9 @@ function aiProduce(T){
   const own=G.cities.filter(c=>c.owner===T);
   for(const c of own)for(const q of c.queue){cnt[q]++;total++;}
   if(total>=UNIT_CAP)return;
+  // builders first: enough of them to keep every construction site moving
+  const wantB=clamp(2+Math.ceil(sitesOf(T).length/2),2,6);
+  if(cnt.eng<wantB&&!missing(E,UT.eng.cost)){const c=own.filter(c=>c.queue.length<2).sort((a,b)=>a.queue.length-b.queue.length)[0];if(c&&act(T)){enqueueUnit(c,'eng');return;}}
   const reserve=G.peace?130:30;
   const want={inf:4,tank:2,art:1,aa:.5,ftr:.35,bmb:.35};
   want.aa+=(pc.ftr+pc.bmb)*.4;want.ftr+=(pc.ftr+pc.bmb)*.25;want.art+=pc.tank*.12+pc.inf*.03;want.tank+=pc.inf*.04;
@@ -83,7 +87,7 @@ function pickTarget(T,x,y){
   return Math.random()<P.err?pick(list.slice(0,3))[1]:list[0][1];
 }
 function aiStrategy(T){
-  const mine=[];for(const u of G.units)if(!u.dead&&!UT[u.type].air&&u.team===T)mine.push(u);
+  const mine=[];for(const u of G.units)if(!u.dead&&!UT[u.type].air&&u.team===T&&u.type!=="eng")mine.push(u);
   const foe=known(T),myC=G.cities.filter(c=>c.owner===T);if(!myC.length)return;
   for(const c of myC){c.threat=0;if(G.peace)continue;for(const e of foe)if(dist2(e.x,e.y,c.x,c.y)<170*170)c.threat+=UT[e.type].w;}
   for(const u of mine)if(u.aiDef&&!u.garrison&&(u.aiDef.owner!==T||u.aiDef.threat===0))u.aiDef=null;
@@ -147,8 +151,15 @@ function aiEcon(T){
   if(cnt.steel<1+(t>140)+(t>380))need.push('steel');
   if(cnt.oil<1+(t>220)+(t>450))need.push('oil');
   if(cnt.gold<1&&t>80)need.push('gold');
+  // money makers: a real player builds them once the basics run, earlier if cash is short
+  const poor=E.tax+(E.biz||0)<14;
+  if(cnt.bank<1+(t>420)&&E.res.gold>=8&&(t>90||poor))need.unshift('bank');
+  if((t>140||poor)&&cnt.goods<1+(t>400))need.push('goods');
+  if(cnt.goods>0&&cnt.shop<cnt.goods)need.unshift('shop');
+  if(t>280&&cnt.silo<1&&(!G.peace||G.peaceEnd-G.time<YEAR))need.push('silo');
   if(E.fill<.9&&!need.includes('house'))need.unshift('house');
-  for(const k of need){const B=BT[k];if(B.work&&E.fill<.82&&k!=='farm')continue;
+  if(sitesOf(T).length>=4)return; // like a person: don't start more than the builders can handle
+  for(const k of need){const B=BT[k];if(B.work>600&&E.fill<(k==='goods'?.7:.82)&&k!=='farm')continue;
     if(missing(E,B.cost)||E.money-B.cost.$<60)continue;
     const ci=findBuildSpot(T,k);if(ci<0)continue;if(!act(T))return;pay(E,B.cost);addBld(k,T,ci,false);break;}
   for(const r of RES){const tgt=RI[r].tgt*(t>300?1.4:1);
@@ -183,4 +194,19 @@ function aiWalls(T){
   for(let a=-1.25;a<=1.25&&placed<4;a+=.12){const x=Math.round(cap.cx+Math.cos(base+a)*R),y=Math.round(cap.cy+Math.sin(base+a)*R);
     if(x<0||y<0||x>=G.W||y>=G.H)continue;const i=y*G.W+x;if(G.wall[i]||placeErr(T,'wall',i))continue;if(missing(E,BT.wall.cost))return;
     if(placed===0&&!act(T))return;pay(E,BT.wall.cost);addBld('wall',T,i,false);placed++;}
+}
+
+function aiStrikes(T){
+  if(G.peace)return;const E=G.E[T],silos=siloOf(T);if(!silos.length)return;
+  const queued=silos.reduce((n,b)=>n+b.aq.length,0),losing=G.terrPct[T]<G.terrPct[3-T]*.6&&G.time-G.peaceEnd>300;
+  if(!queued&&stock(T,'missile')<2&&E.money>600&&!missing(E,STRIKE.missile.cost)){if(act(T))armSilo(T,silos[0],'missile');return;}
+  if(losing&&!queued&&stock(T,'nuke')<1&&E.money>STRIKE.nuke.cost.$+400&&!missing(E,STRIKE.nuke.cost)&&Math.random()<.5){if(act(T))armSilo(T,silos[0],'nuke');return;}
+  const K=known(T).filter(m=>!m.air);let best=null,bs=0;
+  for(const e of K){let v=0;for(const o of K)if(dist2(e.x,e.y,o.x,o.y)<40*40)v+=UT[o.type].cost.$;if(v>bs){bs=v;best=e;}}
+  if(losing&&stock(T,'nuke')>0&&best&&bs>500){const R=STRIKE.nuke.r*1.4;
+    const ownNear=G.cities.some(c=>c.owner===T&&dist2(c.x,c.y,best.x,best.y)<R*R)||G.units.filter(u=>u.team===T&&dist2(u.x,u.y,best.x,best.y)<R*R).length>2;
+    if(!ownNear&&act(T)){launchStrike(T,'nuke',best.x,best.y);return;}}
+  if(stock(T,'missile')>0){let tx=null,ty=null;if(best&&bs>=250){tx=best.x;ty=best.y;}
+    else{const S=aiState(T),b=G.blds.find(b=>b.owner===3-T&&S.bseen.has(b.id)&&['silo','steel','arms','oil','goods'].includes(b.type));if(b){tx=b.x;ty=b.y;}}
+    if(tx!=null&&act(T))launchStrike(T,'missile',tx,ty);}
 }

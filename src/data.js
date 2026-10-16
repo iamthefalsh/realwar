@@ -6,7 +6,7 @@ const DX=[1,-1,0,0,1,1,-1,-1], DY=[0,0,1,-1,1,-1,1,-1];
 const TC={0:{m:'#9aa5b1',d:'#3a4047',l:'#e0e6ec',rgb:[150,160,170]},1:{m:'#3ea6ff',d:'#0c3a63',l:'#d2ecff',rgb:[62,166,255]},2:{m:'#ff4f5e',d:'#5f0d16',l:'#ffd3d7',rgb:[255,79,94]}};
 const DIVC=['#ffd166','#7bf1a8','#f78cff','#ff9f43','#5ef1ff','#c3a6ff','#fff27a','#ff7aa8','#a0ff6b','#ffffff'];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const RES=['food','wood','coal','iron','oil','steel','guns','gold'];
+const RES=['food','wood','coal','iron','oil','steel','guns','goods','gold'];
 const RI={
  food:{n:'Food',p:1.5,mk:700,tgt:250},
  wood:{n:'Wood',p:2,mk:500,tgt:150},
@@ -15,19 +15,22 @@ const RI={
  oil:{n:'Petrol',p:5,mk:320,tgt:120},
  steel:{n:'Steel',p:8,mk:260,tgt:100},
  guns:{n:'Guns',p:9,mk:260,tgt:100},
+ goods:{n:'Goods',p:6,mk:300,tgt:60},
  gold:{n:'Gold',p:30,mk:80,tgt:20},
 };
-const START_RES={food:320,wood:220,coal:60,iron:120,oil:90,steel:70,guns:90,gold:15};
+const START_RES={food:320,wood:220,coal:60,iron:120,oil:90,steel:70,guns:90,goods:30,gold:15};
 const UT={
  inf:{name:'Rifle Squad',cost:{$:30,guns:10,mp:100},time:4,hp:100,speed:15,cls:'foot',air:0,arm:0,w:1,vis:110,r:6,row:1,ap:.3,g:{dmg:9,range:36,cd:1},a:{dmg:3,range:36,cd:1},tag:'Needs guns. Tough in forest & hills'},
  tank:{name:'Tank',cost:{$:90,steel:20,oil:10,mp:40},time:8,hp:280,speed:25,cls:'veh',air:0,arm:1,w:1.3,vis:110,r:7,row:0,ap:1,fuel:55,g:{dmg:30,range:46,cd:1.6},a:null,tag:'Armored spearhead. Burns petrol'},
  art:{name:'Howitzer',cost:{$:80,steel:12,guns:4,mp:60},time:8,hp:80,speed:12,cls:'veh',air:0,arm:0,w:.5,vis:120,r:6,row:3,ap:.7,fuel:70,g:{dmg:34,range:165,cd:3.6,splash:22,min:36,shell:1},a:null,tag:'Long-range splash. Smashes walls'},
  aa:{name:'Anti-Air',cost:{$:60,steel:10,mp:40},time:6,hp:120,speed:17,cls:'veh',air:0,arm:0,w:.6,vis:150,r:6,row:2,ap:.35,fuel:70,g:{dmg:6,range:40,cd:.7},a:{dmg:24,range:105,cd:.55},tag:'Shreds aircraft'},
+ eng:{name:'Builder',cost:{$:25,mp:20},time:3,hp:60,speed:17,cls:'foot',air:0,arm:0,w:0,vis:90,r:5,row:4,ap:0,g:null,a:null,tag:'Carries materials and builds or repairs structures'},
  ftr:{name:'Fighter',cost:{$:110,steel:12,oil:8,mp:10},time:9,hp:90,speed:95,cls:'air',air:1,arm:0,w:0,vis:160,r:6,row:0,ap:.3,g:{dmg:5,range:55,cd:.6},a:{dmg:16,range:75,cd:.45},fuel:45,turn:2.6,tag:'Air superiority. Refuels at base'},
  bmb:{name:'Bomber',cost:{$:160,steel:22,oil:12,mp:25},time:12,hp:150,speed:62,cls:'air',air:1,arm:0,w:0,vis:130,r:7,row:0,ap:1,g:{dmg:55,range:22,cd:2.2,splash:26,bomb:1},a:null,fuel:55,turn:1.5,tag:'Bombs troops, industry & walls'},
 };
-const TYPES=['inf','tank','art','aa','ftr','bmb'];
-const CAN_BUILD={capital:TYPES,factory:['inf','tank','art','aa'],airbase:['inf','ftr','bmb'],town:['inf','aa']};
+const TYPES=['inf','tank','art','aa','ftr','bmb','eng'];
+const ARMY_T=TYPES.filter(t=>t!=='eng');
+const CAN_BUILD={capital:TYPES,factory:['eng','inf','tank','art','aa'],airbase:['eng','inf','ftr','bmb'],town:['eng','inf','aa']};
 const CITY_CAP={capital:16000,factory:6000,airbase:6000,town:6000};
 const CITY_W={capital:4.5,factory:1.6,airbase:1.6,town:1.3};
 const CITY_NAME={capital:'Capital',factory:'Factory',airbase:'Airbase',town:'Town'};
@@ -41,9 +44,18 @@ const BT={
  gold:{n:'Gold Mine',ico:'gold',cost:{$:120,wood:20},time:9,hp:140,on:'dep',dep:'gold',work:1300,out:{gold:.22},d:'On a gold deposit'},
  steel:{n:'Steel Mill',ico:'steel',cost:{$:150,wood:20,iron:15},time:10,hp:200,on:'land',work:1500,inp:{iron:1,coal:.6},out:{steel:.8},d:'Iron + coal make steel'},
  arms:{n:'Arms Factory',ico:'guns',cost:{$:140,wood:15,iron:15},time:10,hp:200,on:'land',work:1400,inp:{iron:.5,wood:.4},out:{guns:1},d:'Iron + wood make guns'},
+ goods:{n:'Goods Factory',ico:'goods',cost:{$:160,wood:25,iron:20},time:10,hp:200,on:'land',work:1300,inp:{iron:.25,wood:.3,coal:.15},out:{goods:1},d:'Makes consumer goods. Sell them or supply shops'},
+ shop:{n:'Market Hall',ico:'shop',cost:{$:120,wood:30},time:8,hp:150,on:'land',work:600,inp:{goods:.35},out:{$:5},d:'Sells goods to citizens for cash'},
+ bank:{n:'Bank',ico:'bank',cost:{$:220,wood:20,iron:10,gold:5},time:12,hp:220,on:'land',work:400,inp:{gold:.03},out:{$:4},d:'Turns gold reserves into steady income'},
+ silo:{n:'Missile Silo',ico:'silo',cost:{$:450,steel:60,iron:30},time:16,hp:400,on:'land',d:'Builds and launches missiles and nukes'},
  wall:{n:'Wall',ico:'wall',cost:{$:6,wood:4,iron:1},time:1.5,hp:900,on:'wall',d:'Blocks enemy troops. Drag to paint'},
 };
 const BTYPES=Object.keys(BT);
+const BCAT=[['Homes & food',['house','farm']],['Raw materials',['lumber','coal','iron','oil','gold']],['Industry',['steel','arms','goods']],['Money',['shop','bank']],['Defence & strike',['wall','silo']]];
+const STRIKE={
+ missile:{n:'Cruise Missile',ico:'missile',cost:{$:180,steel:20,oil:15},time:12,r:36,dmg:150,speed:230,d:'Precise strike. Wrecks troops, buildings and walls'},
+ nuke:{n:'Nuclear Warhead',ico:'nuke',cost:{$:2500,steel:150,oil:60,gold:60},time:60,r:140,dmg:6000,speed:115,d:'Wipes out everything in a huge radius and leaves fallout. The world will never forgive you'},
+};
 const DEPS=['coal','iron','oil','gold'];
 const POL={
  tax:{n:'Taxes',o:['Low','Normal','High'],m:[.6,1,1.5],h:[10,0,-12]},
@@ -110,6 +122,13 @@ const IC={
  pop:[['M12 2.5a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6zM3.5 21.5c0-4.7 3.8-8.5 8.5-8.5s8.5 3.8 8.5 8.5z','#e8eef5']],
  house:[['M12 2.5l9.5 8V21h-6.3v-6H8.8v6H2.5V10.5z','#f1e6d0'],['M12 2.5l9.5 8-1.2 1.4L12 4.9l-8.3 7L2.5 10.5z','#e07a5f']],
  wall:[['M2 9.5h20V21H2z','#a7b0ba'],['M2 13.6h20v1.4H2zM2 17.4h20v1.3H2zM8 9.5h1.4v4.1H8zM15 9.5h1.4v4.1H15zM5 15h1.4v2.4H5zM11.3 15h1.4v2.4h-1.3zM18 15h1.4v2.4H18z','#5b646e'],['M2 5h4v4.5H2zM10 5h4v4.5h-4zM18 5h4v4.5h-4z','#a7b0ba']],
+ goods:[['M3 8l9-4.5L21 8v9l-9 4.5L3 17z','#c98a4b'],['M3 8l9 4.5L21 8M12 12.5V21.5','#7a4f26',1.3],['M7.5 5.8l9 4.5','#f1d3a4',1.3]],
+ shop:[['M3 9.5h18V21H3z','#e9e2d0'],['M2 9.5l2.5-5.5h15L22 9.5z','#e05a4f'],['M2 9.5h20v2.2H2z','#c4483e'],['M9.5 14h5v7h-5z','#6b4a2b'],['M4.5 13h3.5v3.5H4.5zM16 13h3.5v3.5H16z','#8fc7ff']],
+ bank:[['M12 2.5l10 5V9H2V7.5z','#d9cfb8'],['M3 20h18v2H3zM2.5 9h19v1.5h-19z','#bfb39a'],['M4.5 11h2.5v8H4.5zM10.75 11h2.5v8h-2.5zM17 11h2.5v8H17z','#efe7d4'],['M12 4.6a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2z','#d39b00']],
+ silo:[['M3.5 14.5a8.5 4 0 0 0 17 0V20h-17z','#6a737d'],['M12 1.5c1.6 1.7 2.4 4 2.4 6.6V15H9.6V8.1c0-2.6.8-4.9 2.4-6.6z','#e8eef5'],['M9.6 12.5l-2.4 2.5h2.4zM14.4 12.5l2.4 2.5h-2.4z','#ff5a5a']],
+ missile:[['M20.5 3.5c-.6 3.4-2.5 6.4-5.3 8.6l-4.6 3.6-2.3-2.3 3.6-4.6c2.2-2.8 5.2-4.7 8.6-5.3z','#e8eef5'],['M8.3 13.4l-3.6.7-1.8 1.8 3.4.4zM10.6 15.7l-.7 3.6-1.8 1.8-.4-3.4z','#ff5a5a'],['M7.8 16.2l-3.3 3.3','#ffb648',2]],
+ nuke:[['M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 1 0 0-19z','#ffd23f'],['M12 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2zM12 9.4L8.8 3.9a8.2 8.2 0 0 1 6.4 0zM13.7 13l6.3.1a8.2 8.2 0 0 1-3.2 5.5zM10.3 13l-3.1 5.6A8.2 8.2 0 0 1 4 13.1z','#1a1205']],
+ eng:[['M6 9.5a6 6 0 0 1 12 0z','#ffb648'],['M4.5 9.5h15v1.8h-15z','#e08a1e'],['M8 12.6h8v1.6a4 4 0 0 1-8 0z','#f1d0b5'],['M5 21.5c0-3.7 3.1-6.2 7-6.2s7 2.5 7 6.2z','#3c6aa0']],
  t_army:[['M12 2l8.5 3.2v6.3c0 5.3-3.6 9.6-8.5 11-4.9-1.4-8.5-5.7-8.5-11V5.2z','currentColor']],
  t_build:[['M14.2 2.2l6.6 6.6-2.4 2.4-1.7-1.7-8.4 8.4-3-3 8.4-8.4-1.7-1.7zM4.6 15.6l3 3-3.1 3.1a2.1 2.1 0 0 1-3-3z','currentColor']],
  t_market:[['M3 20h18v1.6H3zM4.5 13h3.2v6H4.5zM10.4 9h3.2v10h-3.2zM16.3 4.5h3.2V19h-3.2z','currentColor']],
@@ -130,7 +149,8 @@ function uIcon(t,c='currentColor'){const k='#0b1118',s={
   art:`<path d="M7 13.2L21 5.6l.8 1.5L7.8 14.8z" fill="${c}"/><path d="M5.4 9.6h4.4v6.6H5.4z" fill="${c}"/><path d="M8.6 15.4l-6.8 5 .9 1.2 6.8-5z" fill="${c}"/><circle cx="9" cy="17" r="3.8" fill="${c}"/><circle cx="9" cy="17" r="1.4" fill="${k}"/>`,
   aa:`<path d="M1.8 12.6h13v5H1.8z" fill="${c}"/><path d="M15.2 10.4h4.4l2.6 3.4v3.8h-7z" fill="${c}"/><path d="M6.6 11.8l8.8-7.6.9 1-8.8 7.6zM8.6 12.4l8.8-7.6.9 1-8.8 7.6z" fill="${c}"/><circle cx="5.6" cy="18.4" r="2.3" fill="${c}"/><circle cx="18.2" cy="18.4" r="2.3" fill="${c}"/><circle cx="5.6" cy="18.4" r=".9" fill="${k}"/><circle cx="18.2" cy="18.4" r=".9" fill="${k}"/>`,
   ftr:`<path d="M12 1.2c.8 0 1.2 1.2 1.3 3l.2 4.4 8.6 2.6v2l-8.6-.6-.5 6.2 3.2 1.6V22l-4.2-.6L7.8 22v-1.6l3.2-1.6-.5-6.2-8.6.6v-2l8.6-2.6.2-4.4c.1-1.8.5-3 1.3-3z" fill="${c}"/>`,
-  bmb:`<path d="M12 1c1 0 1.5 1.4 1.5 3.4v4l9.3 1.6v2.6l-9.3-.4-.4 7 3 1.4V22l-4.1-.5-4.1.5v-1.4l3-1.4-.4-7-9.3.4V10l9.3-1.6v-4C10.5 2.4 11 1 12 1z" fill="${c}"/><rect x="5" y="7.2" width="2.4" height="4.4" rx="1" fill="${c}"/><rect x="16.6" y="7.2" width="2.4" height="4.4" rx="1" fill="${c}"/>`}[t];
+  bmb:`<path d="M12 1c1 0 1.5 1.4 1.5 3.4v4l9.3 1.6v2.6l-9.3-.4-.4 7 3 1.4V22l-4.1-.5-4.1.5v-1.4l3-1.4-.4-7-9.3.4V10l9.3-1.6v-4C10.5 2.4 11 1 12 1z" fill="${c}"/><rect x="5" y="7.2" width="2.4" height="4.4" rx="1" fill="${c}"/><rect x="16.6" y="7.2" width="2.4" height="4.4" rx="1" fill="${c}"/>`,
+  eng:`<path d="M7 7.5a5 5 0 0 1 10 0z" fill="${c}"/><rect x="5.5" y="7.3" width="13" height="1.7" rx=".8" fill="${c}"/><circle cx="12" cy="11.6" r="2.6" fill="${c}"/><path d="M6.5 22c0-4 2.5-7.5 5.5-7.5s5.5 3.5 5.5 7.5z" fill="${c}"/><path d="M17.2 13.5l4.6-4.6 1.4 1.4-4.6 4.6z" fill="${c}"/>`}[t];
   return `<svg viewBox="0 0 24 24">${s}</svg>`;}
 const ICO_KEY=k=>k==='$'?'money':k;
 function costHTML(cost,E,mult=1){return '<span class="costs">'+Object.entries(cost).map(([k,v])=>{v=Math.ceil(v*mult);const have=!E?1e9:k==='$'?E.money:k==='mp'?E.mp:E.res[k];
@@ -208,6 +228,12 @@ const QUOTES={
  protest:[['angry','Strike! Nobody works until things change.'],['angry','We demand bread and fair wages!']],
  trade:[['happy','Foreign goods in the shops again!'],['neutral','Ships from {country} at the docks all morning.']],
  occupied:[['angry','Your flag over {city}? We never asked for this.'],['scared','New soldiers in {city}. Nobody goes out after dark.']],
+ nuke:[['scared','A light brighter than the sun over {city}. Then the wind.'],['sad','{city} is gone. Just gone.'],['angry','They used the bomb! There is no forgiving this.']],
+ nukeUse:[['sad','We dropped the bomb. God forgive us.'],['angry','How could our leaders do this in our name?'],['neutral','They say it will end the war faster. I cannot sleep.']],
+ missile:[['scared','A missile hit {city} at noon. No warning at all.'],['angry','Missiles on our homes! Shoot them down!']],
+ civdead:[['sad','The shelling killed people on our street today.'],['sad','We buried my neighbour this morning.']],
+ builders:[['happy','Builders working day and night on the new {bld}.'],['neutral','More cranes on the skyline every week.']],
+ goods:[['happy','New shoes, new radio. The shops are full again!'],['happy','I bought my daughter a coat from the new market hall.']],
  nofuel:[['neutral','Tanks stuck on the road outside {city}. No petrol, they say.']],
  noguns:[['angry','Recruits training with broomsticks! Where are the rifles?']],
  hired:[['neutral','Foreign volunteers at the station. They barely speak our language.']],

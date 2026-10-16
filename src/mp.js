@@ -88,7 +88,7 @@ function mpInit(m){
   const deps=M.deps.map(([type,c])=>{const i=MC(c);return {type,ci:i,cx:i%W,cy:i/W|0,x:(i%W+.5)*CELL,y:((i/W|0)+.5)*CELL};});
   const countries=M.countries.map(c=>({...c,st:{...c.stMax},dm:{...c.dmMax},tr:{1:{},2:{}},rel:[0,0,0],mpA:0,tm:{1:{},2:{}}}));
   G={W,H,seed:0,opts:{size:'medium',mp:true},vertical:H>W,terr,elev,cities,deps,depAt,prov,adj:null,roads:M.roads.map(p=>p.map(MC)),road,
-    units:[],proj:[],fx:[],parts:[],markers:[],civs:[],blds:[],bAt:new Map(),wrecks:[],falling:[],shake:0,
+    units:[],proj:[],fx:[],parts:[],markers:[],civs:[],blds:[],bAt:new Map(),wrecks:[],falling:[],shake:0,strikes:[],fallout:[],
     wall:new Uint8Array(N),wallHp:new Float32Array(N),wallHit:new Float32Array(N),own:new Uint8Array(N),
     time:0,peaceEnd:0,peace:false,terrPct:[0,0,0],divs:[],sel:[],selCity:null,demo:false,mp:true,
     diff:DIFFS.normal,speed:1,paused:false,over:false,nextId:1e9,civT:0,pathQ:[],stats:{1:newStats(),2:newStats()},ai:{},alertT:{},
@@ -124,7 +124,7 @@ function mpUnits(v){
     else if(hp<u.hp){u.flash=.07;u.lastHit=G.time;
       if(type==='inf'){const m0=menOf(u),m1=menOf({hp,maxHp:u.maxHp});for(let j=m1;j<m0;j++){const p=soldierPos(u,j);fallen(p[0],p[1],u.team,u.ang);}}}
     Object.assign(u,{tx:x,ty:y,ta:ang,tta:ta,hp,landed:!!(fl&1),state:fl&2?'retreat':fl&4?'move':'idle',retreatOn:!!(fl&8),rcWhy:fl&16?'fuel':null,
-      fuel:d.fuel?fuel/100*d.fuel:0,rank,ally:ally<0?null:ally,goalX:gx,goalY:gy,divId:div});
+      fuel:d.fuel?fuel/100*d.fuel:0,rank,ally:ally<0?null:ally,goalX:gx,goalY:gy,divId:div,carry:fl&32?1:0,busy:fl&64?1:0});
     if(d.air)u.order=fl&4?{x:gx,y:gy}:null;
   }
   for(const [id,u] of MP.units)if(!seen.has(id)){MP.units.delete(id);u.dead=true;const d=UT[u.type];
@@ -148,18 +148,22 @@ function mpApply(p){
   const dm=new Map(G.divs.map(d=>[d.id,d]));for(const d of G.divs)d.units=[];
   for(const u of G.units){const d=u.team===1&&u.divId?dm.get(u.divId):null;u.div=d||null;if(d)d.units.push(u);}
   if(p.b){if(p.b.full)MP.bmap.clear();
-    for(const [id,ti,ow,c0,hp,prog,eff,cid] of p.b.add){const ci=MC(c0),type=BTYPES[ti];let b=MP.bmap.get(id);
+    for(const [id,ti,ow,c0,hp,prog,eff,cid,mat,sl] of p.b.add){const ci=MC(c0),type=BTYPES[ti];let b=MP.bmap.get(id);
       if(!b){b={id,type,ci,x:(ci%G.W+.5)*CELL,y:((ci/G.W|0)+.5)*CELL,maxHp:BT[type].hp,smokeT:Math.random()};MP.bmap.set(id,b);}
-      Object.assign(b,{owner:MT(ow),hp,prog,eff,city:cid>=0?G.cities[cid]:null});}
+      Object.assign(b,{owner:MT(ow),hp,prog,eff,mat,city:cid>=0?G.cities[cid]:null});if(sl){b.ars={missile:sl[0],nuke:sl[1]};b.aq=sl[2].map(v=>v?'nuke':'missile');b.ap=sl[3];}}
     for(const id of p.b.del)MP.bmap.delete(id);
     G.blds=[...MP.bmap.values()];G.bAt=new Map(G.blds.map(b=>[b.ci,b]));G.placeDirty=true;}
   if(p.w){if(p.wf){G.wall.fill(0);G.wallHp.fill(0);}for(let i=0;i<p.w.length;i+=3){const c=MC(p.w[i]);G.wall[c]=MT(p.w[i+1]);G.wallHp[c]=p.w[i+2]/15*BT.wall.hp;}G.placeDirty=true;}
+  if(p.fo)G.fallout=p.fo.map(([x,y,r,left])=>({x:MX(x),y:MY(y),r,until:G.time+left}));
   if(p.over&&!G.over)mpOver(p.over);
 }
 function mpEv(e){const X=MX(e[1]),Y=MY(e[2]);
   switch(e[0]){
     case 'x':return explode(X,Y,e[3]);case 'p':return puff(X,Y,e[3],e[4]);case 's':return scorch(X,Y,e[3],e[4]);case 'd':return debris(X,Y,e[3]);
     case 'b':return burn(X,Y,e[3]);case 'k':return shakeAt(X,Y,e[3]);case 'm':return smoke(X,Y,e[3]);case 'z':return sparks(X,Y,e[3]);case 'c':return crater(X,Y);
+    case 'M':{const [,id,kind,sx,sy,tx,ty,dur]=e;G.strikes.push({id,kind,sx:MX(sx),sy:MY(sy),tx:MX(tx),ty:MY(ty),t:0,dur:dur/1000});return;}
+    case 'I':{G.strikes=G.strikes.filter(s=>s.id!==e[1]);return explode(MX(e[2]),MY(e[3]),1.4);}
+    case 'N':return nukeFx(X,Y,e[3]);case 'h':return civHit(X,Y,e[3]);
     case 'e':return exFx(X,Y,e[3]);case 'f':return flakFx(X,Y);case 'S':return sfx(e[1],MX(e[2]),MY(e[3]));case 'F':return mpFire(e);}}
 function mpFire([,id,kind,n,tx0,ty0,durMs,stepMs]){const u=MP.units.get(id);if(!u)return;const tx=MX(tx0),ty=MY(ty0);u.fireT=G.time;
   if(kind==='shell'){const [mx,my]=muzzlePos(u);G.proj.push({kind,sx:mx,sy:my,tx,ty,t:0,dur:durMs/1000,vis:true});mzFx(mx,my,u.ang,2.2,0);return;}

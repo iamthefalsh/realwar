@@ -10,7 +10,7 @@ const DX=[1,-1,0,0,1,1,-1,-1], DY=[0,0,1,-1,1,-1,1,-1];
 const TC={0:{m:'#9aa5b1',d:'#3a4047',l:'#e0e6ec',rgb:[150,160,170]},1:{m:'#3ea6ff',d:'#0c3a63',l:'#d2ecff',rgb:[62,166,255]},2:{m:'#ff4f5e',d:'#5f0d16',l:'#ffd3d7',rgb:[255,79,94]}};
 const DIVC=['#ffd166','#7bf1a8','#f78cff','#ff9f43','#5ef1ff','#c3a6ff','#fff27a','#ff7aa8','#a0ff6b','#ffffff'];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const RES=['food','wood','coal','iron','oil','steel','guns','gold'];
+const RES=['food','wood','coal','iron','oil','steel','guns','goods','gold'];
 const RI={
  food:{n:'Food',p:1.5,mk:700,tgt:250},
  wood:{n:'Wood',p:2,mk:500,tgt:150},
@@ -19,19 +19,22 @@ const RI={
  oil:{n:'Petrol',p:5,mk:320,tgt:120},
  steel:{n:'Steel',p:8,mk:260,tgt:100},
  guns:{n:'Guns',p:9,mk:260,tgt:100},
+ goods:{n:'Goods',p:6,mk:300,tgt:60},
  gold:{n:'Gold',p:30,mk:80,tgt:20},
 };
-const START_RES={food:320,wood:220,coal:60,iron:120,oil:90,steel:70,guns:90,gold:15};
+const START_RES={food:320,wood:220,coal:60,iron:120,oil:90,steel:70,guns:90,goods:30,gold:15};
 const UT={
  inf:{name:'Rifle Squad',cost:{$:30,guns:10,mp:100},time:4,hp:100,speed:15,cls:'foot',air:0,arm:0,w:1,vis:110,r:6,row:1,ap:.3,g:{dmg:9,range:36,cd:1},a:{dmg:3,range:36,cd:1},tag:'Needs guns. Tough in forest & hills'},
  tank:{name:'Tank',cost:{$:90,steel:20,oil:10,mp:40},time:8,hp:280,speed:25,cls:'veh',air:0,arm:1,w:1.3,vis:110,r:7,row:0,ap:1,fuel:55,g:{dmg:30,range:46,cd:1.6},a:null,tag:'Armored spearhead. Burns petrol'},
  art:{name:'Howitzer',cost:{$:80,steel:12,guns:4,mp:60},time:8,hp:80,speed:12,cls:'veh',air:0,arm:0,w:.5,vis:120,r:6,row:3,ap:.7,fuel:70,g:{dmg:34,range:165,cd:3.6,splash:22,min:36,shell:1},a:null,tag:'Long-range splash. Smashes walls'},
  aa:{name:'Anti-Air',cost:{$:60,steel:10,mp:40},time:6,hp:120,speed:17,cls:'veh',air:0,arm:0,w:.6,vis:150,r:6,row:2,ap:.35,fuel:70,g:{dmg:6,range:40,cd:.7},a:{dmg:24,range:105,cd:.55},tag:'Shreds aircraft'},
+ eng:{name:'Builder',cost:{$:25,mp:20},time:3,hp:60,speed:17,cls:'foot',air:0,arm:0,w:0,vis:90,r:5,row:4,ap:0,g:null,a:null,tag:'Carries materials and builds or repairs structures'},
  ftr:{name:'Fighter',cost:{$:110,steel:12,oil:8,mp:10},time:9,hp:90,speed:95,cls:'air',air:1,arm:0,w:0,vis:160,r:6,row:0,ap:.3,g:{dmg:5,range:55,cd:.6},a:{dmg:16,range:75,cd:.45},fuel:45,turn:2.6,tag:'Air superiority. Refuels at base'},
  bmb:{name:'Bomber',cost:{$:160,steel:22,oil:12,mp:25},time:12,hp:150,speed:62,cls:'air',air:1,arm:0,w:0,vis:130,r:7,row:0,ap:1,g:{dmg:55,range:22,cd:2.2,splash:26,bomb:1},a:null,fuel:55,turn:1.5,tag:'Bombs troops, industry & walls'},
 };
-const TYPES=['inf','tank','art','aa','ftr','bmb'];
-const CAN_BUILD={capital:TYPES,factory:['inf','tank','art','aa'],airbase:['inf','ftr','bmb'],town:['inf','aa']};
+const TYPES=['inf','tank','art','aa','ftr','bmb','eng'];
+const ARMY_T=TYPES.filter(t=>t!=='eng');
+const CAN_BUILD={capital:TYPES,factory:['eng','inf','tank','art','aa'],airbase:['eng','inf','ftr','bmb'],town:['eng','inf','aa']};
 const CITY_CAP={capital:16000,factory:6000,airbase:6000,town:6000};
 const CITY_W={capital:4.5,factory:1.6,airbase:1.6,town:1.3};
 const CITY_NAME={capital:'Capital',factory:'Factory',airbase:'Airbase',town:'Town'};
@@ -45,9 +48,18 @@ const BT={
  gold:{n:'Gold Mine',ico:'gold',cost:{$:120,wood:20},time:9,hp:140,on:'dep',dep:'gold',work:1300,out:{gold:.22},d:'On a gold deposit'},
  steel:{n:'Steel Mill',ico:'steel',cost:{$:150,wood:20,iron:15},time:10,hp:200,on:'land',work:1500,inp:{iron:1,coal:.6},out:{steel:.8},d:'Iron + coal make steel'},
  arms:{n:'Arms Factory',ico:'guns',cost:{$:140,wood:15,iron:15},time:10,hp:200,on:'land',work:1400,inp:{iron:.5,wood:.4},out:{guns:1},d:'Iron + wood make guns'},
+ goods:{n:'Goods Factory',ico:'goods',cost:{$:160,wood:25,iron:20},time:10,hp:200,on:'land',work:1300,inp:{iron:.25,wood:.3,coal:.15},out:{goods:1},d:'Makes consumer goods. Sell them or supply shops'},
+ shop:{n:'Market Hall',ico:'shop',cost:{$:120,wood:30},time:8,hp:150,on:'land',work:600,inp:{goods:.35},out:{$:5},d:'Sells goods to citizens for cash'},
+ bank:{n:'Bank',ico:'bank',cost:{$:220,wood:20,iron:10,gold:5},time:12,hp:220,on:'land',work:400,inp:{gold:.03},out:{$:4},d:'Turns gold reserves into steady income'},
+ silo:{n:'Missile Silo',ico:'silo',cost:{$:450,steel:60,iron:30},time:16,hp:400,on:'land',d:'Builds and launches missiles and nukes'},
  wall:{n:'Wall',ico:'wall',cost:{$:6,wood:4,iron:1},time:1.5,hp:900,on:'wall',d:'Blocks enemy troops. Drag to paint'},
 };
 const BTYPES=Object.keys(BT);
+const BCAT=[['Homes & food',['house','farm']],['Raw materials',['lumber','coal','iron','oil','gold']],['Industry',['steel','arms','goods']],['Money',['shop','bank']],['Defence & strike',['wall','silo']]];
+const STRIKE={
+ missile:{n:'Cruise Missile',ico:'missile',cost:{$:180,steel:20,oil:15},time:12,r:36,dmg:150,speed:230,d:'Precise strike. Wrecks troops, buildings and walls'},
+ nuke:{n:'Nuclear Warhead',ico:'nuke',cost:{$:2500,steel:150,oil:60,gold:60},time:60,r:140,dmg:6000,speed:115,d:'Wipes out everything in a huge radius and leaves fallout. The world will never forgive you'},
+};
 const DEPS=['coal','iron','oil','gold'];
 const POL={
  tax:{n:'Taxes',o:['Low','Normal','High'],m:[.6,1,1.5],h:[10,0,-12]},
@@ -114,6 +126,13 @@ const IC={
  pop:[['M12 2.5a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6zM3.5 21.5c0-4.7 3.8-8.5 8.5-8.5s8.5 3.8 8.5 8.5z','#e8eef5']],
  house:[['M12 2.5l9.5 8V21h-6.3v-6H8.8v6H2.5V10.5z','#f1e6d0'],['M12 2.5l9.5 8-1.2 1.4L12 4.9l-8.3 7L2.5 10.5z','#e07a5f']],
  wall:[['M2 9.5h20V21H2z','#a7b0ba'],['M2 13.6h20v1.4H2zM2 17.4h20v1.3H2zM8 9.5h1.4v4.1H8zM15 9.5h1.4v4.1H15zM5 15h1.4v2.4H5zM11.3 15h1.4v2.4h-1.3zM18 15h1.4v2.4H18z','#5b646e'],['M2 5h4v4.5H2zM10 5h4v4.5h-4zM18 5h4v4.5h-4z','#a7b0ba']],
+ goods:[['M3 8l9-4.5L21 8v9l-9 4.5L3 17z','#c98a4b'],['M3 8l9 4.5L21 8M12 12.5V21.5','#7a4f26',1.3],['M7.5 5.8l9 4.5','#f1d3a4',1.3]],
+ shop:[['M3 9.5h18V21H3z','#e9e2d0'],['M2 9.5l2.5-5.5h15L22 9.5z','#e05a4f'],['M2 9.5h20v2.2H2z','#c4483e'],['M9.5 14h5v7h-5z','#6b4a2b'],['M4.5 13h3.5v3.5H4.5zM16 13h3.5v3.5H16z','#8fc7ff']],
+ bank:[['M12 2.5l10 5V9H2V7.5z','#d9cfb8'],['M3 20h18v2H3zM2.5 9h19v1.5h-19z','#bfb39a'],['M4.5 11h2.5v8H4.5zM10.75 11h2.5v8h-2.5zM17 11h2.5v8H17z','#efe7d4'],['M12 4.6a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2z','#d39b00']],
+ silo:[['M3.5 14.5a8.5 4 0 0 0 17 0V20h-17z','#6a737d'],['M12 1.5c1.6 1.7 2.4 4 2.4 6.6V15H9.6V8.1c0-2.6.8-4.9 2.4-6.6z','#e8eef5'],['M9.6 12.5l-2.4 2.5h2.4zM14.4 12.5l2.4 2.5h-2.4z','#ff5a5a']],
+ missile:[['M20.5 3.5c-.6 3.4-2.5 6.4-5.3 8.6l-4.6 3.6-2.3-2.3 3.6-4.6c2.2-2.8 5.2-4.7 8.6-5.3z','#e8eef5'],['M8.3 13.4l-3.6.7-1.8 1.8 3.4.4zM10.6 15.7l-.7 3.6-1.8 1.8-.4-3.4z','#ff5a5a'],['M7.8 16.2l-3.3 3.3','#ffb648',2]],
+ nuke:[['M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 1 0 0-19z','#ffd23f'],['M12 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2zM12 9.4L8.8 3.9a8.2 8.2 0 0 1 6.4 0zM13.7 13l6.3.1a8.2 8.2 0 0 1-3.2 5.5zM10.3 13l-3.1 5.6A8.2 8.2 0 0 1 4 13.1z','#1a1205']],
+ eng:[['M6 9.5a6 6 0 0 1 12 0z','#ffb648'],['M4.5 9.5h15v1.8h-15z','#e08a1e'],['M8 12.6h8v1.6a4 4 0 0 1-8 0z','#f1d0b5'],['M5 21.5c0-3.7 3.1-6.2 7-6.2s7 2.5 7 6.2z','#3c6aa0']],
  t_army:[['M12 2l8.5 3.2v6.3c0 5.3-3.6 9.6-8.5 11-4.9-1.4-8.5-5.7-8.5-11V5.2z','currentColor']],
  t_build:[['M14.2 2.2l6.6 6.6-2.4 2.4-1.7-1.7-8.4 8.4-3-3 8.4-8.4-1.7-1.7zM4.6 15.6l3 3-3.1 3.1a2.1 2.1 0 0 1-3-3z','currentColor']],
  t_market:[['M3 20h18v1.6H3zM4.5 13h3.2v6H4.5zM10.4 9h3.2v10h-3.2zM16.3 4.5h3.2V19h-3.2z','currentColor']],
@@ -134,7 +153,8 @@ function uIcon(t,c='currentColor'){const k='#0b1118',s={
   art:`<path d="M7 13.2L21 5.6l.8 1.5L7.8 14.8z" fill="${c}"/><path d="M5.4 9.6h4.4v6.6H5.4z" fill="${c}"/><path d="M8.6 15.4l-6.8 5 .9 1.2 6.8-5z" fill="${c}"/><circle cx="9" cy="17" r="3.8" fill="${c}"/><circle cx="9" cy="17" r="1.4" fill="${k}"/>`,
   aa:`<path d="M1.8 12.6h13v5H1.8z" fill="${c}"/><path d="M15.2 10.4h4.4l2.6 3.4v3.8h-7z" fill="${c}"/><path d="M6.6 11.8l8.8-7.6.9 1-8.8 7.6zM8.6 12.4l8.8-7.6.9 1-8.8 7.6z" fill="${c}"/><circle cx="5.6" cy="18.4" r="2.3" fill="${c}"/><circle cx="18.2" cy="18.4" r="2.3" fill="${c}"/><circle cx="5.6" cy="18.4" r=".9" fill="${k}"/><circle cx="18.2" cy="18.4" r=".9" fill="${k}"/>`,
   ftr:`<path d="M12 1.2c.8 0 1.2 1.2 1.3 3l.2 4.4 8.6 2.6v2l-8.6-.6-.5 6.2 3.2 1.6V22l-4.2-.6L7.8 22v-1.6l3.2-1.6-.5-6.2-8.6.6v-2l8.6-2.6.2-4.4c.1-1.8.5-3 1.3-3z" fill="${c}"/>`,
-  bmb:`<path d="M12 1c1 0 1.5 1.4 1.5 3.4v4l9.3 1.6v2.6l-9.3-.4-.4 7 3 1.4V22l-4.1-.5-4.1.5v-1.4l3-1.4-.4-7-9.3.4V10l9.3-1.6v-4C10.5 2.4 11 1 12 1z" fill="${c}"/><rect x="5" y="7.2" width="2.4" height="4.4" rx="1" fill="${c}"/><rect x="16.6" y="7.2" width="2.4" height="4.4" rx="1" fill="${c}"/>`}[t];
+  bmb:`<path d="M12 1c1 0 1.5 1.4 1.5 3.4v4l9.3 1.6v2.6l-9.3-.4-.4 7 3 1.4V22l-4.1-.5-4.1.5v-1.4l3-1.4-.4-7-9.3.4V10l9.3-1.6v-4C10.5 2.4 11 1 12 1z" fill="${c}"/><rect x="5" y="7.2" width="2.4" height="4.4" rx="1" fill="${c}"/><rect x="16.6" y="7.2" width="2.4" height="4.4" rx="1" fill="${c}"/>`,
+  eng:`<path d="M7 7.5a5 5 0 0 1 10 0z" fill="${c}"/><rect x="5.5" y="7.3" width="13" height="1.7" rx=".8" fill="${c}"/><circle cx="12" cy="11.6" r="2.6" fill="${c}"/><path d="M6.5 22c0-4 2.5-7.5 5.5-7.5s5.5 3.5 5.5 7.5z" fill="${c}"/><path d="M17.2 13.5l4.6-4.6 1.4 1.4-4.6 4.6z" fill="${c}"/>`}[t];
   return `<svg viewBox="0 0 24 24">${s}</svg>`;}
 const ICO_KEY=k=>k==='$'?'money':k;
 function costHTML(cost,E,mult=1){return '<span class="costs">'+Object.entries(cost).map(([k,v])=>{v=Math.ceil(v*mult);const have=!E?1e9:k==='$'?E.money:k==='mp'?E.mp:E.res[k];
@@ -212,6 +232,12 @@ const QUOTES={
  protest:[['angry','Strike! Nobody works until things change.'],['angry','We demand bread and fair wages!']],
  trade:[['happy','Foreign goods in the shops again!'],['neutral','Ships from {country} at the docks all morning.']],
  occupied:[['angry','Your flag over {city}? We never asked for this.'],['scared','New soldiers in {city}. Nobody goes out after dark.']],
+ nuke:[['scared','A light brighter than the sun over {city}. Then the wind.'],['sad','{city} is gone. Just gone.'],['angry','They used the bomb! There is no forgiving this.']],
+ nukeUse:[['sad','We dropped the bomb. God forgive us.'],['angry','How could our leaders do this in our name?'],['neutral','They say it will end the war faster. I cannot sleep.']],
+ missile:[['scared','A missile hit {city} at noon. No warning at all.'],['angry','Missiles on our homes! Shoot them down!']],
+ civdead:[['sad','The shelling killed people on our street today.'],['sad','We buried my neighbour this morning.']],
+ builders:[['happy','Builders working day and night on the new {bld}.'],['neutral','More cranes on the skyline every week.']],
+ goods:[['happy','New shoes, new radio. The shops are full again!'],['happy','I bought my daughter a coat from the new market hall.']],
  nofuel:[['neutral','Tanks stuck on the road outside {city}. No petrol, they say.']],
  noguns:[['angry','Recruits training with broomsticks! Where are the rifles?']],
  hired:[['neutral','Foreign volunteers at the station. They barely speak our language.']],
@@ -388,7 +414,7 @@ function newGame(opts){
   const m=genMap(W,H,seed,vertical);
   const prep=opts.demo||opts.mp?0:(+opts.prep||0);
   G={W,H,seed,opts,vertical,terr:m.terr,elev:m.elev,cities:m.cities,deps:m.deps,depAt:m.depAt,prov:m.prov,adj:m.adj,roads:m.roads,road:m.road,
-    units:[],proj:[],fx:[],parts:[],markers:[],civs:[],blds:[],bAt:new Map(),wrecks:[],falling:[],shake:0,
+    units:[],proj:[],fx:[],parts:[],markers:[],civs:[],blds:[],bAt:new Map(),wrecks:[],falling:[],shake:0,strikes:[],fallout:[],
     wall:new Uint8Array(N),wallHp:new Float32Array(N),wallHit:new Float32Array(N),own:new Uint8Array(N),
     time:0,peaceEnd:prep*YEAR,peace:prep>0,terrPct:[0,0,0],divs:[],sel:[],selCity:null,demo:!!opts.demo,
     diff:DIFFS[opts.diff||'normal'],speed:opts.demo?2:1,paused:false,over:false,nextId:1,terrT:0,visT:0,visN:0,econT:0,civT:0,pathQ:[],
@@ -404,7 +430,7 @@ function newGame(opts){
   // identical, mirrored starting positions for both nations
   for(const type of ['farm','farm','lumber','house']){const ci=findBuildSpot(1,type);if(ci<0)continue;addBld(type,1,ci,true);
     const mi=N-1-ci;if(!placeErr(2,type,mi))addBld(type,2,mi,true);else{const c2=findBuildSpot(2,type);if(c2>=0)addBld(type,2,c2,true);}}
-  const cap=capitalOf(1),off=[[-14,-10,'inf'],[14,-10,'inf'],[0,16,'inf'],[0,-2,'tank']];
+  const cap=capitalOf(1),off=[[-14,-10,'inf'],[14,-10,'inf'],[0,16,'inf'],[0,-2,'tank'],[-20,14,'eng'],[20,14,'eng']];
   for(const [dx,dy,t] of off){spawnUnit(t,1,cap.x+dx,cap.y+dy);spawnUnit(t,2,(W*CELL)-(cap.x+dx),(H*CELL)-(cap.y+dy));}
   econTick(0);
   if(!opts.headless)initVisuals();
@@ -448,7 +474,8 @@ function enqueueUnit(c,t){const E=G.E[c.owner];
 function addBld(type,owner,ci,instant){
   if(type==='wall'){G.wall[ci]=owner;G.wallHp[ci]=instant?BT.wall.hp:BT.wall.hp*.2;G.wallHit[ci]=-99;G.wallDirty=true;return null;}
   const x=(ci%G.W+.5)*CELL,y=((ci/G.W|0)+.5)*CELL;
-  const b={id:G.nextId++,type,owner,ci,x,y,hp:BT[type].hp,maxHp:BT[type].hp,prog:instant?1:0,city:null,eff:0,smokeT:Math.random()};
+  const b={id:G.nextId++,type,owner,ci,x,y,hp:BT[type].hp,maxHp:BT[type].hp,prog:instant?1:0,mat:instant?1:0,inb:0,city:null,eff:0,smokeT:Math.random(),hitT:-99};
+  if(type==='silo'){b.ars={missile:0,nuke:0};b.aq=[];b.ap=0;}
   if(type==='house')b.city=nearestCity(x,y,owner);
   G.blds.push(b);G.bAt.set(ci,b);return b;
 }
@@ -456,7 +483,7 @@ function removeBld(b){G.blds=G.blds.filter(x=>x!==b);G.bAt.delete(b.ci);if(G.pla
 function damageWall(i,amt){G.wallHp[i]-=amt;G.wallHit[i]=G.time;
   if(G.wallHp[i]<=0){const t=G.wall[i];G.wall[i]=0;G.wallDirty=true;const x=(i%G.W+.5)*CELL,y=((i/G.W|0)+.5)*CELL;explode(x,y,.9);debris(x,y,10);
     if(t&&!(G.alertT['wall'+t]>G.time)){G.alertT['wall'+t]=G.time+15;note(t,'Enemy breached your wall!','bad','wall');}}}
-function damageBld(b,amt,by){b.hp-=amt;if(b.hp<=0)destroyBld(b,by);}
+function damageBld(b,amt,by){b.hp-=amt;b.hitT=G.time;if(b.hp<=0)destroyBld(b,by);}
 function destroyBld(b,by){
   removeBld(b);explode(b.x,b.y,1.3);scorch(b.x,b.y,10,.35);debris(b.x,b.y,12);burn(b.x,b.y,25);
   const E=G.E[b.owner];if(!E)return;
@@ -465,7 +492,7 @@ function destroyBld(b,by){
   for(const c of G.countries)if(c.persona==='pacifist'&&by)c.rel[by]-=b.type==='house'||b.type==='farm'?3:1.2;
   note(b.owner,`Your ${BT[b.type].n} was destroyed`,'bad',BT[b.type].ico);voice(b.owner,'bombed',{bld:BT[b.type].n.toLowerCase(),city:(b.city||nearestCity(b.x,b.y,b.owner)||{name:''}).name});
 }
-function captureBld(b,o){b.owner=o;b.prog=Math.max(b.prog,.5);if(b.type==='house')b.city=nearestCity(b.x,b.y,o);}
+function captureBld(b,o){b.owner=o;b.inb=0;if(b.type==='house')b.city=nearestCity(b.x,b.y,o);}
 
 // ================= COMBAT =================
 function weaponFor(u,t){const d=UT[u.type];return t.air?d.a:d.g}
@@ -499,9 +526,9 @@ function damage(t,amt,ap,src){
 }
 function nearWall(ci,team){const W=G.W;for(let k=0;k<4;k++){const n=ci+DX[k]+DY[k]*W;if(n>=0&&n<G.W*G.H&&G.wall[n]===team)return true;}return false}
 function kill(t,src){
-  t.dead=true;t.hp=0;const d=UT[t.type];
+  t.dead=true;t.hp=0;const d=UT[t.type];if(t.type==='eng')dropJob(t);
   if(d.air)addFalling(t);
-  else if(t.type==='inf'){for(let k=0;k<menOf({hp:t.maxHp*.2,maxHp:t.maxHp})+1;k++){const p=soldierPos(t,k);fallen(p[0],p[1],t.team,t.ang+rnd(-1,1));}puff(t.x,t.y,'rgba(120,110,90,.8)',5);}
+  else if(t.type==='inf'||t.type==='eng'){for(let k=0;k<menOf({hp:t.maxHp*.2,maxHp:t.maxHp})+1;k++){const p=soldierPos(t,k);fallen(p[0],p[1],t.team,t.ang+rnd(-1,1));}puff(t.x,t.y,'rgba(120,110,90,.8)',5);}
   else{explode(t.x,t.y,1.4);scorch(t.x,t.y,8,.35);debris(t.x,t.y,10);addWreck(t);shakeAt(t.x,t.y,3);}
   if(src&&!src.dead){src.xp++;src.rank=src.xp>=12?3:src.xp>=6?2:src.xp>=2?1:0;}
   const E=G.E[t.team];if(t.ally==null){E.cas+=d.cost.mp;E.weary+=d.cost.mp/140;}
@@ -562,6 +589,10 @@ function splash(p){
     const w=G.wall[i];if(w&&w!==p.team)damageWall(i,p.dmg*1.4);
     const b=G.bAt.get(i);if(b&&b.owner!==p.team)damageBld(b,p.dmg*(p.kind==='bomb'?1.5:.8),p.team);}
   for(const c of G.cities)if(c.owner&&c.owner!==p.team&&dist2(p.tx,p.ty,c.x,c.y)<140*140)cityAlarm(c.owner,p.tx,p.ty,p.kind==='bomb'?.5:.25);
+  // shells and bombs landing in a town kill the people who live there
+  for(const c of G.cities){const d=Math.sqrt(dist2(p.tx,p.ty,c.x,c.y));if(d>R+34||c.pop<1)continue;const dead=Math.min(c.pop*.02,p.dmg*1.6*(1-d/(R+34)));c.pop-=dead;
+    if(c.owner){G.E[c.owner].civDead+=dead;G.E[c.owner].sh.attack=Math.max(-30,G.E[c.owner].sh.attack-dead/300);if(dead>40&&Math.random()<.3)voice(c.owner,'civdead',{city:c.name});}}
+  civHit(p.tx,p.ty,R*.9);
   if(p.kind==='bomb')for(const c of G.countries)if(c.persona==='pacifist'&&G.cities.some(k=>k.owner&&k.owner!==p.team&&dist2(p.tx,p.ty,k.x,k.y)<90*90))c.rel[p.team]-=.6;
   const big=p.kind==='bomb';explode(p.tx,p.ty,big?1.6:1);scorch(p.tx,p.ty,big?9:5,big?.4:.22);debris(p.tx,p.ty,big?14:7);if(big)crater(p.tx,p.ty);
   shakeAt(p.tx,p.ty,big?4:1.5);sfx('boom',p.tx,p.ty);
@@ -643,6 +674,7 @@ function updateGround(u,dt){
   const d=UT[u.type],E=G.E[u.team],ci=cellIdx(u.x,u.y),o=G.own[ci],veh=d.cls==='veh';
   if(o===u.team){if(G.time-u.lastHit>4)u.hp=Math.min(u.maxHp,u.hp+u.maxHp*(nearCity(u.x,u.y,u.team,44)?.06:.012)*dt);}
   else if(o&&u.hp>u.maxHp*.4)u.hp-=u.maxHp*.004*dt;
+  if(u.type==='eng'&&updateBuilder(u,dt)&&u.state!=='move'){moveGround(u,dt);return;}
   if(veh&&o===u.team&&u.fuel<d.fuel){const need=Math.min((nearCity(u.x,u.y,u.team,95)?7:1)*dt,d.fuel-u.fuel),cost=need*.08;
     if(E.res.oil>=cost){u.fuel+=need;E.res.oil-=cost;E.fuelUse+=cost;}else E.noOil=true;}
   if(u.state!=='retreat'&&u.retreatOn){
@@ -851,7 +883,7 @@ function update(dt){
   rebuildHash();processPaths();
   if((G.visT-=dt)<=0){G.visT=.2;visTick();}
   for(const u of G.units)if(!u.dead)updateUnit(u,dt);
-  production(dt);updateProj(dt);
+  production(dt);updateProj(dt);siloTick(dt);strikesTick(dt);falloutTick(dt);
   if((G.terrT-=dt)<=0){G.terrT=.25;terrTick(.25);}
   if((G.econT-=dt)<=0){G.econT=.5;econTick(.5);}
   if(G.over)return;
@@ -891,13 +923,13 @@ function newEcon(t){
   const mk={},ph={},net={};for(const r of RES){mk[r]=RI[r].mk;ph[r]=[];net[r]=0;}
   return {t,money:500,res:{...START_RES},mp:400,pol:{tax:1,draft:1,ration:1},hap:62,hapT:62,fac:[],
     sh:{attack:0,loss:0,win:0,war:0,ally:0,trade:0},weary:0,cas:0,civDead:0,fled:0,
-    prod:{},cons:{},net,pop:0,cap:0,jobs:0,labor:0,fill:1,unemp:0,mil:0,mpCap:0,recruit:0,tax:0,growth:0,starving:false,
+    prod:{},cons:{},net,biz:0,goodsOk:false,pop:0,cap:0,jobs:0,labor:0,fill:1,unemp:0,mil:0,mpCap:0,recruit:0,tax:0,growth:0,starving:false,
     mk,ph,phT:0,fuelUse:0,noOil:false,state:'stable',collapseT:0,tradeIn:0,tradeOut:0};
 }
 function econTick(dt){
   for(const t of [1,2])econTeam(t,dt);
   countriesTick(dt);
-  if(dt>0){const W=G.W,N=W*G.H;for(let i=0;i<N;i++)if(G.wall[i]&&G.wallHp[i]<BT.wall.hp&&G.time-G.wallHit[i]>6)G.wallHp[i]=Math.min(BT.wall.hp,G.wallHp[i]+45*dt);}
+  // walls are finished and repaired by builders (see builders.js)
   if(dt>0&&!G.demo)periodicVoices(dt);
   if(dt>0)marketEvents(dt);
 }
@@ -910,18 +942,21 @@ function econTeam(t,dt){
   let jobs=0;for(const b of G.blds)if(b.owner===t&&b.prog>=1&&BT[b.type].work)jobs+=BT[b.type].work;
   const labor=pop*.3;E.jobs=jobs;E.labor=labor;E.fill=jobs?Math.min(1,labor/jobs):1;E.unemp=labor>0?Math.max(0,labor-jobs)/labor:0;
   const st=E.state,hapMod=st==='riot'?.55:st==='protest'?.8:st==='patriotic'?1.1:1,eff=E.fill*hapMod*eff0;
-  const prod={},cons={};for(const r of RES){prod[r]=0;cons[r]=0;}
+  const prod={},cons={};for(const r of RES){prod[r]=0;cons[r]=0;}let biz=0;
   for(const b of G.blds){if(b.owner!==t)continue;const B=BT[b.type];
-    if(b.prog<1){b.prog=Math.min(1,b.prog+dt/B.time);b.eff=0;continue;}
+    if(b.prog<1){b.eff=0;continue;}
     if(!B.out)continue;
     let k=eff;
     if(B.inp&&dt>0)for(const r in B.inp)k=Math.min(k,E.res[r]/(B.inp[r]*dt));
     k=Math.max(0,k);b.eff=k;
     if(B.inp)for(const r in B.inp){const v=B.inp[r]*k;E.res[r]-=v*dt;cons[r]+=v;}
-    for(const r in B.out){const v=B.out[r]*k;E.res[r]+=v*dt;prod[r]+=v;}}
+    for(const r in B.out){const v=B.out[r]*k;if(r==='$'){E.money+=v*dt;biz+=v;}else{E.res[r]+=v*dt;prod[r]+=v;}}}
+  E.biz=biz;
   const ration=POL.ration.m[E.pol.ration],need=pop*.00018*ration;cons.food+=need;
   if(E.res.food>=need*dt){E.res.food-=need*dt;E.starving=false;}else{E.res.food=0;E.starving=dt>0;}
   if(dt>0)cons.oil+=E.fuelUse/dt;E.fuelUse=0;
+  // citizens buy consumer goods when there are any: a small comfort that keeps them happier
+  const gneed=pop*.000025;cons.goods+=gneed;if(E.res.goods>=gneed*dt){E.res.goods-=gneed*dt;E.goodsOk=true;}else E.goodsOk=false;
   E.prod=prod;E.cons=cons;for(const r of RES)E.net[r]=prod[r]-cons[r];
   E.tax=pop*.0004*POL.tax.m[E.pol.tax]*(.55+E.hap/150)*(st==='riot'?.5:st==='protest'?.75:1)*eff0;
   E.money+=E.tax*dt;
@@ -955,6 +990,8 @@ function happiness(E,t,dt){
   const f=[],add=(n,v)=>{v=Math.round(v);if(v)f.push([n,v]);return v};
   let h=50;
   h+=add(G.peace?'Peacetime':'At war',G.peace?6:-4);
+  h+=add('Consumer goods',E.goodsOk?5:E.pop>40000?-3:0);
+  h+=add('Radioactive fallout',-Math.min(15,G.fallout.filter(f=>G.own[cellIdx(f.x,f.y)]===t).length*8));
   h+=add('Food supply',E.starving?-30:E.res.food<E.cons.food*25?-6:4);
   h+=add('Rations',POL.ration.h[E.pol.ration]);
   h+=add('Taxes',POL.tax.h[E.pol.tax]);
@@ -1099,14 +1136,14 @@ function civTick(dt){
   if((G.civT-=dt)<=0){G.civT=.8;
     for(const c of G.cities){if(!c.owner)continue;c.civN=c.civN||0;const want=Math.min(10,Math.round(c.pop/1600));
       if(c.civN<want&&G.civs.length<180){const a=Math.random()*TAU,r=rnd(6,26);
-        G.civs.push({c,owner:c.owner,x:c.x+Math.cos(a)*r,y:c.y+Math.sin(a)*r,tx:c.x,ty:c.y,sp:rnd(5,8),fl:0,life:0,shade:Math.random()});c.civN++;}}}
+        G.civs.push({id:G.nextId++,c,owner:c.owner,x:c.x+Math.cos(a)*r,y:c.y+Math.sin(a)*r,tx:c.x,ty:c.y,sp:rnd(5,8),fl:0,life:0,walk:0,ang:0});c.civN++;}}}
   for(const v of G.civs){const c=v.c;v.life+=dt;
     if(c.owner!==v.owner){v.gone=v.gone||G.time+12;const h=nearestCity(v.x,v.y,v.owner);if(h){v.tx=h.x;v.ty=h.y;}v.fl=1;}
     else if(c.panic>.35){if(!v.fl||dist2(v.x,v.y,v.tx,v.ty)<9){const a=Math.atan2(v.y-c.y,v.x-c.x)+rnd(-.6,.6),r=rnd(40,75);v.tx=c.x+Math.cos(a)*r;v.ty=c.y+Math.sin(a)*r;}v.fl=1;}
     else{v.fl=0;if(dist2(v.x,v.y,v.tx,v.ty)<4){
       const near=[];for(const b of G.blds)if(b.owner===c.owner&&dist2(b.x,b.y,c.x,c.y)<4900)near.push(b);
       const b=near.length&&Math.random()<.65?pick(near):null;v.tx=b?b.x+rnd(-5,5):c.x+rnd(-24,24);v.ty=b?b.y+rnd(-5,5):c.y+rnd(-24,24);}}
-    const dx=v.tx-v.x,dy=v.ty-v.y,L=Math.hypot(dx,dy);if(L>.5){const s=Math.min(L,(v.fl?24:v.sp)*dt);v.x+=dx/L*s;v.y+=dy/L*s;}
+    const dx=v.tx-v.x,dy=v.ty-v.y,L=Math.hypot(dx,dy);if(L>.5){const s=Math.min(L,(v.fl?24:v.sp)*dt);v.x+=dx/L*s;v.y+=dy/L*s;v.walk+=s;v.ang=Math.atan2(dy,dx);}
     if(v.gone&&(G.time>v.gone||L<3)){v.dead=true;c.civN--;}}
   if(G.civs.some(v=>v.dead))G.civs=G.civs.filter(v=>!v.dead);
 }
@@ -1163,7 +1200,7 @@ function findBuildSpot(T,type){
 // ================= AI: plays by the same rules as you =================
 // It only knows what its units have seen, notices threats after a delay,
 // and has a limited number of "taps" per second, like a human player.
-function aiState(T){return G.ai[T]||(G.ai[T]={think:1,strat:2,plane:4,econ:1.5,dip:5,wall:8,ap:2,mem:new Map(),bseen:new Set()})}
+function aiState(T){return G.ai[T]||(G.ai[T]={think:1,strat:2,plane:4,econ:1.5,dip:5,wall:8,stk:12,ap:2,mem:new Map(),bseen:new Set()})}
 const aiP=T=>(T===2&&!G.demo)?G.diff:{ap:.6,react:3,wave:1,err:.12,grace:150,think:1};
 function act(T){const S=aiState(T);if(S.ap<1)return false;S.ap-=1;return true}
 function known(T,airToo){const S=aiState(T),r=aiP(T).react,out=[];for(const m of S.mem.values()){if(G.time-m.first<r)continue;if(!airToo&&m.air)continue;out.push(m);}return out}
@@ -1176,6 +1213,7 @@ function aiTick(T,dt){
   if((S.econ-=dt)<=0){S.econ=2.5*k;aiEcon(T);}
   if((S.dip-=dt)<=0){S.dip=7*k;aiDiplomacy(T);}
   if((S.wall-=dt)<=0){S.wall=4*k;aiWalls(T);}
+  if((S.stk-=dt)<=0){S.stk=8*k;aiStrikes(T);}
 }
 function frontDist(c,T){let b=1e18;for(const o of G.cities)if(o.owner!==T)b=Math.min(b,dist2(c.x,c.y,o.x,o.y));return b}
 function aiProduce(T){
@@ -1185,6 +1223,9 @@ function aiProduce(T){
   const own=G.cities.filter(c=>c.owner===T);
   for(const c of own)for(const q of c.queue){cnt[q]++;total++;}
   if(total>=UNIT_CAP)return;
+  // builders first: enough of them to keep every construction site moving
+  const wantB=clamp(2+Math.ceil(sitesOf(T).length/2),2,6);
+  if(cnt.eng<wantB&&!missing(E,UT.eng.cost)){const c=own.filter(c=>c.queue.length<2).sort((a,b)=>a.queue.length-b.queue.length)[0];if(c&&act(T)){enqueueUnit(c,'eng');return;}}
   const reserve=G.peace?130:30;
   const want={inf:4,tank:2,art:1,aa:.5,ftr:.35,bmb:.35};
   want.aa+=(pc.ftr+pc.bmb)*.4;want.ftr+=(pc.ftr+pc.bmb)*.25;want.art+=pc.tank*.12+pc.inf*.03;want.tank+=pc.inf*.04;
@@ -1212,7 +1253,7 @@ function pickTarget(T,x,y){
   return Math.random()<P.err?pick(list.slice(0,3))[1]:list[0][1];
 }
 function aiStrategy(T){
-  const mine=[];for(const u of G.units)if(!u.dead&&!UT[u.type].air&&u.team===T)mine.push(u);
+  const mine=[];for(const u of G.units)if(!u.dead&&!UT[u.type].air&&u.team===T&&u.type!=="eng")mine.push(u);
   const foe=known(T),myC=G.cities.filter(c=>c.owner===T);if(!myC.length)return;
   for(const c of myC){c.threat=0;if(G.peace)continue;for(const e of foe)if(dist2(e.x,e.y,c.x,c.y)<170*170)c.threat+=UT[e.type].w;}
   for(const u of mine)if(u.aiDef&&!u.garrison&&(u.aiDef.owner!==T||u.aiDef.threat===0))u.aiDef=null;
@@ -1276,8 +1317,15 @@ function aiEcon(T){
   if(cnt.steel<1+(t>140)+(t>380))need.push('steel');
   if(cnt.oil<1+(t>220)+(t>450))need.push('oil');
   if(cnt.gold<1&&t>80)need.push('gold');
+  // money makers: a real player builds them once the basics run, earlier if cash is short
+  const poor=E.tax+(E.biz||0)<14;
+  if(cnt.bank<1+(t>420)&&E.res.gold>=8&&(t>90||poor))need.unshift('bank');
+  if((t>140||poor)&&cnt.goods<1+(t>400))need.push('goods');
+  if(cnt.goods>0&&cnt.shop<cnt.goods)need.unshift('shop');
+  if(t>280&&cnt.silo<1&&(!G.peace||G.peaceEnd-G.time<YEAR))need.push('silo');
   if(E.fill<.9&&!need.includes('house'))need.unshift('house');
-  for(const k of need){const B=BT[k];if(B.work&&E.fill<.82&&k!=='farm')continue;
+  if(sitesOf(T).length>=4)return; // like a person: don't start more than the builders can handle
+  for(const k of need){const B=BT[k];if(B.work>600&&E.fill<(k==='goods'?.7:.82)&&k!=='farm')continue;
     if(missing(E,B.cost)||E.money-B.cost.$<60)continue;
     const ci=findBuildSpot(T,k);if(ci<0)continue;if(!act(T))return;pay(E,B.cost);addBld(k,T,ci,false);break;}
   for(const r of RES){const tgt=RI[r].tgt*(t>300?1.4:1);
@@ -1314,6 +1362,142 @@ function aiWalls(T){
     if(placed===0&&!act(T))return;pay(E,BT.wall.cost);addBld('wall',T,i,false);placed++;}
 }
 
+function aiStrikes(T){
+  if(G.peace)return;const E=G.E[T],silos=siloOf(T);if(!silos.length)return;
+  const queued=silos.reduce((n,b)=>n+b.aq.length,0),losing=G.terrPct[T]<G.terrPct[3-T]*.6&&G.time-G.peaceEnd>300;
+  if(!queued&&stock(T,'missile')<2&&E.money>600&&!missing(E,STRIKE.missile.cost)){if(act(T))armSilo(T,silos[0],'missile');return;}
+  if(losing&&!queued&&stock(T,'nuke')<1&&E.money>STRIKE.nuke.cost.$+400&&!missing(E,STRIKE.nuke.cost)&&Math.random()<.5){if(act(T))armSilo(T,silos[0],'nuke');return;}
+  const K=known(T).filter(m=>!m.air);let best=null,bs=0;
+  for(const e of K){let v=0;for(const o of K)if(dist2(e.x,e.y,o.x,o.y)<40*40)v+=UT[o.type].cost.$;if(v>bs){bs=v;best=e;}}
+  if(losing&&stock(T,'nuke')>0&&best&&bs>500){const R=STRIKE.nuke.r*1.4;
+    const ownNear=G.cities.some(c=>c.owner===T&&dist2(c.x,c.y,best.x,best.y)<R*R)||G.units.filter(u=>u.team===T&&dist2(u.x,u.y,best.x,best.y)<R*R).length>2;
+    if(!ownNear&&act(T)){launchStrike(T,'nuke',best.x,best.y);return;}}
+  if(stock(T,'missile')>0){let tx=null,ty=null;if(best&&bs>=250){tx=best.x;ty=best.y;}
+    else{const S=aiState(T),b=G.blds.find(b=>b.owner===3-T&&S.bseen.has(b.id)&&['silo','steel','arms','oil','goods'].includes(b.type));if(b){tx=b.x;ty=b.y;}}
+    if(tx!=null&&act(T))launchStrike(T,'missile',tx,ty);}
+}
+
+// ================= BUILDERS & CONSTRUCTION =================
+// Placing a structure pays for it and creates a construction site (mat = materials delivered,
+// prog = built). Builders fetch materials from the nearest city in loads, carry them to the
+// site, then build. Progress can never run ahead of the materials on site.
+// Idle builders also repair damaged buildings and walls.
+const B_CAP=30,B_REACH=20,B_LOAD=.8;
+function siteNeed(b){if(b.need==null){let n=0;const c=BT[b.type].cost;for(const k in c)if(k!=='$')n+=c[k];b.need=Math.max(6,n);}return b.need;}
+const siteDone=b=>b.prog>=1;
+const crewAt=b=>G.units.filter(u=>!u.dead&&u.type==='eng'&&u.bj&&u.bj.b===b).length;
+function depotFor(u,b){return nearestCity(b?b.x:u.x,b?b.y:u.y,u.team)}
+function jobValid(u,j){
+  if(j.wi!=null){const i=j.wi;return G.wall[i]===u.team&&G.wallHp[i]<BT.wall.hp-1;}
+  const b=j.b;if(!b||b.owner!==u.team||!G.blds.includes(b))return false;
+  if(j.k==='rep')return siteDone(b)&&b.hp<b.maxHp-1;return !siteDone(b);
+}
+function pickJob(u){
+  const T=u.team;let best=null,bs=1e18;
+  for(const b of G.blds){if(b.owner!==T)continue;
+    const d=Math.sqrt(dist2(u.x,u.y,b.x,b.y)),crew=crewAt(b);
+    if(!siteDone(b)){const need=siteNeed(b),left=need*(1-b.mat)-(b.inb||0);
+      if(left>.01){const dep=depotFor(u,b);if(!dep)continue;const sc=Math.sqrt(dist2(u.x,u.y,dep.x,dep.y))+Math.sqrt(dist2(dep.x,dep.y,b.x,b.y))+crew*40;
+        if(sc<bs){bs=sc;best={k:'mat',b,ph:'load',dep,amt:Math.min(B_CAP,left)};}}
+      else if(b.prog<b.mat){const sc=d+crew*90;if(sc<bs){bs=sc;best={k:'work',b,ph:'go'};}}}
+    else if(b.hp<b.maxHp-1&&G.time-(b.hitT||-99)>5){const sc=d+200+crew*120;if(sc<bs){bs=sc;best={k:'rep',b,ph:'go'};}}}
+  // walls: new segments start weak and must be finished; damaged ones get repaired
+  if(!best||bs>120){const W=G.W,cx=Math.floor(u.x/CELL),cy=Math.floor(u.y/CELL),R=22;
+    for(let y=Math.max(0,cy-R);y<=Math.min(G.H-1,cy+R);y++)for(let x=Math.max(0,cx-R);x<=Math.min(W-1,cx+R);x++){const i=y*W+x;
+      if(G.wall[i]!==T||G.wallHp[i]>=BT.wall.hp-1||G.time-G.wallHit[i]<5)continue;
+      if(G.units.some(o=>o!==u&&o.type==='eng'&&o.bj&&o.bj.wi===i))continue;
+      const sc=Math.hypot(x-cx,y-cy)*CELL+60;if(sc<bs){bs=sc;best={k:'wall',wi:i,ph:'go'};}}}
+  if(best&&best.k==='mat')best.b.inb=(best.b.inb||0)+best.amt;
+  return best;
+}
+function dropJob(u){const j=u.bj;if(j&&j.k==='mat'&&j.b){j.b.inb=Math.max(0,(j.b.inb||0)-(u.carry||j.amt||0));}u.bj=null;u.carry=0;u.busy=0;}
+function goTo(u,x,y){if(dist2(u.x,u.y,x,y)<B_REACH*B_REACH)return true;if(u.state!=='move'||dist2(u.goalX,u.goalY,x,y)>100)setMove(u,x,y,true);return false;}
+function updateBuilder(u,dt){
+  u.busy=0;
+  if(u.state==='retreat')return false;
+  if(u.manualT>G.time)return false;          // the player moved this builder by hand
+  if(u.state==='move'&&!u.bj)return false;
+  let j=u.bj;
+  if(j&&!jobValid(u,j)){dropJob(u);j=null;}
+  if(!j){if((u.jt=(u.jt||0)-dt)>0)return u.state!=='move';u.jt=.7;j=u.bj=pickJob(u);if(!j)return false;}
+  if(j.k==='mat'){
+    if(j.ph==='load'){if(!j.dep||j.dep.owner!==u.team){j.dep=depotFor(u,j.b);if(!j.dep){dropJob(u);return false;}}
+      if(goTo(u,j.dep.x,j.dep.y)){if(u.state==='move')arrive(u);j.lt=(j.lt||0)+dt;if(j.lt>=B_LOAD){u.carry=j.amt;j.ph='carry';}}return true;}
+    if(j.ph==='carry'){if(goTo(u,j.b.x,j.b.y)){if(u.state==='move')arrive(u);const b=j.b;b.mat=Math.min(1,b.mat+u.carry/siteNeed(b));b.inb=Math.max(0,(b.inb||0)-u.carry);u.carry=0;
+        j.k='work';j.ph='go';}return true;}
+  }
+  if(j.k==='work'||j.k==='rep'){const b=j.b;if(!goTo(u,b.x,b.y))return true;if(u.state==='move')arrive(u);
+    u.busy=1;u.ang=Math.atan2(b.y-u.y,b.x-u.x);
+    if(j.k==='rep'){b.hp=Math.min(b.maxHp,b.hp+b.maxHp*.08*dt);if(b.hp>=b.maxHp-1)u.bj=null;return true;}
+    b.prog=Math.min(b.mat,b.prog+dt/BT[b.type].time);
+    if(b.prog>=1){b.prog=1;u.bj=null;siteFinished(b);}else if(b.prog>=b.mat)u.bj=null;
+    return true;}
+  if(j.k==='wall'){const i=j.wi,x=(i%G.W+.5)*CELL,y=((i/G.W|0)+.5)*CELL;if(!goTo(u,x,y))return true;if(u.state==='move')arrive(u);
+    u.busy=1;u.ang=Math.atan2(y-u.y,x-u.x);G.wallHp[i]=Math.min(BT.wall.hp,G.wallHp[i]+BT.wall.hp*.14*dt);G.wallDirty=true;
+    if(G.wallHp[i]>=BT.wall.hp-1)u.bj=null;return true;}
+  return false;
+}
+function siteFinished(b){note(b.owner,`${BT[b.type].n} complete`,'good',BT[b.type].ico,'build');if(Math.random()<.25)voice(b.owner,'builders',{bld:BT[b.type].n.toLowerCase()});}
+const buildersOf=T=>G.units.filter(u=>u.team===T&&u.type==='eng'&&!u.dead);
+const sitesOf=T=>G.blds.filter(b=>b.owner===T&&!siteDone(b));
+
+// ================= MISSILES, NUKES & FALLOUT =================
+// A Missile Silo builds warheads one at a time. Launching sends a missile on a ballistic arc;
+// enemy anti-air near its path may shoot it down. Nukes destroy everything in a large radius,
+// kill a city's people, leave radioactive fallout and turn the whole world against you.
+function siloOf(T){return G.blds.filter(b=>b.owner===T&&b.type==='silo'&&siteDone(b))}
+function stock(T,k){let n=0;for(const b of siloOf(T))n+=b.ars?b.ars[k]:0;return n}
+function armSilo(T,b,k){const S=STRIKE[k];if(!S||!b||b.owner!==T||b.type!=='silo')return 'Not your silo';if(!siteDone(b))return 'The silo is still under construction';
+  if(b.aq.length>=3)return 'Silo queue full';const m=missing(G.E[T],S.cost);if(m)return 'Not enough '+m;
+  if(k==='nuke'&&(stock(T,'nuke')+G.blds.filter(o=>o.owner===T&&o.aq&&o.aq.includes('nuke')).length)>=2)return 'You can hold at most 2 nuclear warheads';
+  pay(G.E[T],S.cost);b.aq.push(k);return ''}
+function siloTick(dt){for(const b of G.blds){if(b.type!=='silo'||!b.aq||!b.aq.length||!siteDone(b))continue;const k=b.aq[0];b.ap+=dt;
+  if(b.ap>=STRIKE[k].time){b.ap=0;b.aq.shift();b.ars[k]++;note(b.owner,`${STRIKE[k].n} ready to launch`,'good',STRIKE[k].ico,'blip');}}}
+function launchStrike(T,k,x,y){
+  const S=STRIKE[k];if(!S)return '';if(G.peace)return 'You cannot strike in peacetime';
+  x=clamp(x,0,G.W*CELL);y=clamp(y,0,G.H*CELL);
+  const silos=siloOf(T).filter(b=>b.ars[k]>0).sort((a,b)=>dist2(a.x,a.y,x,y)-dist2(b.x,b.y,x,y));
+  if(!silos.length)return `No ${S.n.toLowerCase()} ready. Build one at a Missile Silo`;
+  const b=silos[0];b.ars[k]--;const D=Math.hypot(x-b.x,y-b.y),s={id:G.nextId++,kind:k,team:T,sx:b.x,sy:b.y,tx:x,ty:y,t:0,dur:D/S.speed+(k==='nuke'?2.2:1.2),tried:new Set()};
+  G.strikes.push(s);strikeFx(s);
+  if(k==='nuke'){note(T,'Nuclear missile launched','bad','nuke','siren');note(3-T,'NUCLEAR LAUNCH DETECTED! Take cover','bad','nuke','siren');
+    for(const c of G.countries)c.rel[T]=clamp(c.rel[T]-30,-100,100);G.E[T].sh.attack=Math.max(-30,G.E[T].sh.attack-10);voice(T,'nukeUse',{},true);}
+  else{note(T,'Missile launched','',k,'');note(3-T,'Incoming missile!','bad','missile','alert');}
+  return '';
+}
+function strikePos(s,t){const f=clamp(t/s.dur,0,1),x=s.sx+(s.tx-s.sx)*f,y=s.sy+(s.ty-s.sy)*f;return [x,y,f]}
+function strikesTick(dt){
+  if(!G.strikes.length)return;
+  for(const s of G.strikes){s.t+=dt;const [x,y,f]=strikePos(s,s.t);
+    // anti-air gets one chance per battery once the warhead descends into range
+    if(f>.6&&f<.97)for(const u of G.units){if(u.dead||u.team===s.team||u.type!=='aa'||s.tried.has(u.id))continue;
+      if(dist2(u.x,u.y,x,y)>105*105)continue;s.tried.add(u.id);
+      if(Math.random()<(s.kind==='nuke'?.07:.24)){s.done=true;interceptFx(s,x,y);explode(x,y,1.4);note(s.team,'Your missile was shot down','bad','missile');note(u.team,`Anti-air shot down an enemy ${s.kind==='nuke'?'NUCLEAR missile':'missile'}!`,'good','aa');break;}}
+    if(!s.done&&s.t>=s.dur){s.done=true;impact(s);}}
+  G.strikes=G.strikes.filter(s=>!s.done);
+}
+function impact(s){const S=STRIKE[s.kind];
+  if(s.kind==='missile'){splash({kind:'bomb',tx:s.tx,ty:s.ty,dmg:S.dmg,splash:S.r,ap:1,team:s.team,src:null});
+    for(const c of G.cities)if(c.owner&&c.owner!==s.team&&dist2(c.x,c.y,s.tx,s.ty)<80*80)voice(c.owner,'missile',{city:c.name});return;}
+  nukeBlast(s);
+}
+function nukeBlast(s){
+  const R=STRIKE.nuke.r,x=s.tx,y=s.ty,R2=R*R;nukeFx(x,y,R);civHit(x,y,R*1.1);
+  for(const u of G.units){if(u.dead)continue;const d2=dist2(u.x,u.y,x,y);if(d2<R2*(UT[u.type].air&&!u.landed?.45:1))damage(u,STRIKE.nuke.dmg*(1-.4*Math.sqrt(d2)/R),1,null);}
+  for(const b of G.blds.slice())if(dist2(b.x,b.y,x,y)<R2*.85)destroyBld(b,s.team);
+  const W=G.W,cr=Math.ceil(R/CELL),cx=Math.floor(x/CELL),cy=Math.floor(y/CELL);
+  for(let yy=cy-cr;yy<=cy+cr;yy++)for(let xx=cx-cr;xx<=cx+cr;xx++){if(xx<0||yy<0||xx>=W||yy>=G.H)continue;const i=yy*W+xx;if(G.wall[i]&&dist2((xx+.5)*CELL,(yy+.5)*CELL,x,y)<R2*.8){G.wall[i]=0;G.wallDirty=true;}}
+  for(const c of G.cities){const d=Math.sqrt(dist2(c.x,c.y,x,y));if(d>R*1.4)continue;const k=clamp(1.15-d/(R*1.4),0,.85),dead=c.pop*k;
+    c.pop-=dead;c.panic=1;if(c.owner){const E=G.E[c.owner];E.civDead+=dead;E.sh.attack=-30;E.sh.loss=Math.max(-30,E.sh.loss-15);voice(c.owner,'nuke',{city:c.name},true);
+      note(c.owner,`${c.name} was hit by a nuclear bomb. ${fmt(dead)} people killed`,'bad','nuke','alert');}}
+  G.fallout.push({x,y,r:R*.85,until:G.time+120});
+  shakeAt(x,y,7);sfx('boom',x,y);
+}
+function falloutTick(dt){if(!G.fallout.length)return;G.fallout=G.fallout.filter(f=>f.until>G.time);
+  for(const f of G.fallout){const r2=f.r*f.r;
+    for(const u of G.units)if(!u.dead&&!(UT[u.type].air&&!u.landed)&&dist2(u.x,u.y,f.x,f.y)<r2)damage(u,(UT[u.type].arm?2:5)*dt,1,null);
+    for(const c of G.cities)if(dist2(c.x,c.y,f.x,f.y)<r2)c.pop*=1-.004*dt;}}
+
 // ================= PLAYER COMMANDS =================
 // Every action a player can take goes through runCmd(team, name, args).
 // Single player runs it directly; online, the match server runs it for the sender's team.
@@ -1325,7 +1509,8 @@ function splitHalves(l){const xs=l.map(u=>u.x),ys=l.map(u=>u.y),hz=Math.max(...x
   l=l.slice().sort((p,q)=>hz?p.x-q.x:p.y-q.y);const h=Math.ceil(l.length/2);return [l.slice(0,h),l.slice(h)];}
 const CMD={
   move(T,a){const us=myUnits(T,a.ids);if(!us.length||!NUM(a.x)||!NUM(a.y))return;let x=clamp(a.x,0,G.W*CELL),y=clamp(a.y,0,G.H*CELL);
-    if(a.tid){const e=G.units.find(u=>u.id===a.tid&&u.team!==T&&!u.dead);if(e){x=e.x;y=e.y;}}orderMove(us,x,y,us.length===1);},
+    if(a.tid){const e=G.units.find(u=>u.id===a.tid&&u.team!==T&&!u.dead);if(e){x=e.x;y=e.y;}}
+    for(const u of us)if(u.type==='eng'){dropJob(u);u.manualT=G.time+8;}orderMove(us,x,y,us.length===1);},
   stop(T,a){for(const u of myUnits(T,a.ids)){if(UT[u.type].air)orderPlane(u,null);else{u.ordX=null;if(u.state==='retreat')u.rc=null;arrive(u);}}},
   retreat(T,a){for(const u of myUnits(T,a.ids))if(!UT[u.type].air)startRetreat(u,true,'hp');},
   refuel(T,a){for(const u of myUnits(T,a.ids))if(UT[u.type].cls==='veh')startRetreat(u,true,'fuel');},
@@ -1347,6 +1532,8 @@ const CMD={
   hire(T,a){const c=G.countries[a.c];return c&&(a.n===100||a.n===500)?hire(T,c,a.n):'';},
   gift(T,a){const c=G.countries[a.c];return c&&(a.k==='gold'||a.k==='$')?gift(T,c,a.k):'';},
   sign(T,a){const c=G.countries[a.c];return c&&TREATY[a.k]?sign(c,a.k,T):'';},
+  arm(T,a){const b=G.blds.find(b=>b.id===a.id);return armSilo(T,b,a.k);},
+  launch(T,a){if(!STRIKE[a.k]||!NUM(a.x)||!NUM(a.y))return '';return launchStrike(T,a.k,a.x,a.y);},
   pol(T,a){if(POL[a.k]&&[0,1,2].includes(a.v))G.E[T].pol[a.k]=a.v;},
   war(T){if(G.peace&&!G.mp)declareWar();},
   surrender(T){if(G.mp&&!G.over)gameOver(T===1?'lose':'win','surrender');},
@@ -1373,6 +1560,10 @@ function crater(x,y){EV.push(['c',ri(x),ri(y)]);}
 function exFx(x,y,r){EV.push(['e',ri(x),ri(y),r]);}
 function flakFx(x,y){EV.push(['f',ri(x),ri(y)]);}
 function sfx(k,x,y){if(x!=null)EV.push(['S',k,ri(x),ri(y)]);}
+function strikeFx(s){EV.push(['M',s.id,s.kind,ri(s.sx),ri(s.sy),ri(s.tx),ri(s.ty),ri(s.dur*1000)]);}
+function interceptFx(s,x,y){EV.push(['I',s.id,ri(x),ri(y)]);}
+function nukeFx(x,y,r){EV.push(['N',ri(x),ri(y),ri(r)]);}
+function civHit(x,y,r){EV.push(['h',ri(x),ri(y),ri(r)]);}
 function shotEv(u,kind,n,tx,ty,dur,step){EV.push(['F',u.id,kind,n,ri(tx),ri(ty),ri((dur||0)*1000),ri((step||0)*1000)]);}
 // clients derive these from unit state themselves
 function mzFx(){}function muzzle(){}function fallen(){}function trackMark(){}function addWreck(){}function addFalling(){}
@@ -1398,17 +1589,17 @@ function encUnits(){
     v.setInt16(o+6,q(u.x),true);v.setInt16(o+8,q(u.y),true);v.setInt16(o+10,Math.round(wrapA(u.ang)*1000),true);v.setInt16(o+12,Math.round(wrapA(u.tAng||0)*1000),true);
     v.setUint16(o+14,Math.max(0,Math.round(u.hp)),true);
     const moving=d.air?!!(u.order&&!u.landed):u.state==='move';
-    v.setUint8(o+16,(u.landed?1:0)|(u.state==='retreat'?2:0)|(moving?4:0)|(u.retreatOn?8:0)|(u.rcWhy==='fuel'?16:0));
+    v.setUint8(o+16,(u.landed?1:0)|(u.state==='retreat'?2:0)|(moving?4:0)|(u.retreatOn?8:0)|(u.rcWhy==='fuel'?16:0)|(u.carry?32:0)|(u.busy?64:0));
     v.setUint32(o+17,u.div?u.div.id:0,true);v.setUint8(o+21,d.fuel?clamp(Math.round(100*u.fuel/d.fuel),0,100):0);v.setUint8(o+22,u.rank);v.setInt8(o+23,u.ally==null?-1:u.ally);
     const gx=d.air?(u.order?u.order.x:u.x):u.goalX,gy=d.air?(u.order?u.order.y:u.y):u.goalY;v.setInt16(o+24,q(gx),true);v.setInt16(o+26,q(gy),true);
     o+=28;}
   return new Uint8Array(buf);
 }
 const lastB=new Map();let lastW=null;
-const bpack=b=>[b.id,BTI[b.type],b.owner,b.ci,Math.round(b.hp),r2(b.prog),r2(b.eff),b.city?b.city.id:-1];
+const bpack=b=>[b.id,BTI[b.type],b.owner,b.ci,Math.round(b.hp),r2(b.prog),r2(b.eff),b.city?b.city.id:-1,r2(b.mat),b.ars?[b.ars.missile,b.ars.nuke,b.aq.map(k=>k==='nuke'?1:0),r2(b.ap)]:0];
 function sharedDiff(){
   const add=[],cur=new Set();
-  for(const b of G.blds){cur.add(b.id);const sig=b.owner+'|'+Math.round(b.hp)+'|'+Math.round(b.prog*20)+'|'+Math.round(b.eff*20);if(lastB.get(b.id)!==sig){lastB.set(b.id,sig);add.push(bpack(b));}}
+  for(const b of G.blds){cur.add(b.id);const sig=b.owner+'|'+Math.round(b.hp)+'|'+Math.round(b.prog*40)+'|'+Math.round(b.eff*20)+'|'+Math.round(b.mat*20)+(b.ars?'|'+b.ars.missile+b.ars.nuke+b.aq.join()+Math.round(b.ap):'');if(lastB.get(b.id)!==sig){lastB.set(b.id,sig);add.push(bpack(b));}}
   const del=[];for(const id of lastB.keys())if(!cur.has(id)){del.push(id);lastB.delete(id);}
   const N=G.W*G.H;if(!lastW)lastW=new Uint8Array(N*2);const w=[];
   for(let i=0;i<N;i++){const o=G.wall[i],hq=o?Math.ceil(G.wallHp[i]/BT.wall.hp*15):0;if(lastW[i*2]!==o||lastW[i*2+1]!==hq){lastW[i*2]=o;lastW[i*2+1]=hq;w.push(i,o,hq);}}
@@ -1416,7 +1607,7 @@ function sharedDiff(){
 }
 function fullStructs(){const w=[],N=G.W*G.H;for(let i=0;i<N;i++)if(G.wall[i])w.push(i,G.wall[i],Math.ceil(G.wallHp[i]/BT.wall.hp*15));return {b:{full:1,add:G.blds.map(bpack),del:[]},w,wf:1};}
 function econPack(E,withHist){const o={money:r2(E.money),mp:Math.round(E.mp),pol:E.pol,hap:r2(E.hap),hapT:r2(E.hapT),fac:E.fac,state:E.state,pop:Math.round(E.pop),cap:Math.round(E.cap),
-  jobs:Math.round(E.jobs),labor:Math.round(E.labor),fill:r2(E.fill),unemp:r2(E.unemp),mil:Math.round(E.mil),mpCap:Math.round(E.mpCap),recruit:r2(E.recruit),tax:r2(E.tax),growth:r2(E.growth),
+  biz:r2(E.biz),goodsOk:E.goodsOk,jobs:Math.round(E.jobs),labor:Math.round(E.labor),fill:r2(E.fill),unemp:r2(E.unemp),mil:Math.round(E.mil),mpCap:Math.round(E.mpCap),recruit:r2(E.recruit),tax:r2(E.tax),growth:r2(E.growth),
   starving:E.starving,collapseT:r2(E.collapseT),weary:r2(E.weary),cas:Math.round(E.cas),civDead:Math.round(E.civDead),fled:Math.round(E.fled),res:{},net:{},mk:{}};
   for(const r of RES){o.res[r]=r2(E.res[r]);o.net[r]=r2(E.net[r]);o.mk[r]=r2(E.mk[r]);}
   if(withHist){o.ph={};for(const r of RES)o.ph[r]=E.ph[r].map(r2);}return o;}
@@ -1429,6 +1620,7 @@ function teamPayload(T,full,shared){
     c.owner===T?c.queue.map(q=>TYPEI[q]):[],c.owner===T?r2(c.prog):0]);
   if(full||nPay%3===0){o.e=econPack(G.E[T],full||nPay%12===0);const F=G.E[3-T];o.oe={hap:r2(F.hap),state:F.state,pop:Math.round(F.pop)};o.tp=[0,r2(G.terrPct[1]),r2(G.terrPct[2])];}
   if(full||nPay%6===0)o.k=countriesPack();
+  if(full||nPay%4===0)o.fo=G.fallout.map(f=>[ri(f.x),ri(f.y),ri(f.r),r2(f.until-G.time)]);
   o.d=G.divs.filter(d=>d.team===T).map(d=>[d.id,d.num,d.color]);
   const st=full?fullStructs():shared;if(full||st.b.add.length||st.b.del.length)o.b=st.b;if(full||st.w.length){o.w=st.w;if(full)o.wf=1;}
   if(G.over)o.over={winner:G.winner,why:G.why,stats:G.stats[T],time:r2(G.time)};

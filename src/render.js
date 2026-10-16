@@ -12,7 +12,7 @@ function flakFx(x,y){G.fx.push({k:'flak',x,y,life:.45,max:.45});}
 function shotEv(){}
 function addWreck(t){G.wrecks.push({x:t.x,y:t.y,ang:t.ang,tAng:t.tAng,type:t.type,team:t.team,t:G.time});}
 function addFalling(t){G.falling.push({x:t.x,y:t.y,ang:t.ang,type:t.type,team:t.team,t:0,spin:(Math.random()<.5?-1:1)*rnd(2,4),sp:UT[t.type].speed*.7});}
-function initVisuals(){const W=G.W,H=G.H;buildTerrain();
+function initVisuals(){const W=G.W,H=G.H;buildTerrain();buildWorld();
   G.ov=document.createElement('canvas');G.ov.width=W;G.ov.height=H;G.ovCtx=G.ov.getContext('2d');G.ovImg=G.ovCtx.createImageData(W,H);
   G.provPath=provBorders();refreshOwn();}
 function provBorders(){const W=G.W,H=G.H,P=G.prov,p=new Path2D();
@@ -27,7 +27,7 @@ function updateFx(dt){
   for(const m of G.markers)m.life-=dt;G.markers=G.markers.filter(m=>m.life>0);
   if(G.mp)updateProj(dt);
   for(const f of G.fx)if(f.delay>0){f.delay-=dt;f.life+=dt;}
-  G.shake*=Math.exp(-dt*9);updateArt(dt);
+  G.shake*=Math.exp(-dt*9);updateArt(dt);worldFx(dt);
 }
 
 // ================= AUDIO =================
@@ -101,10 +101,11 @@ const depSprite=t=>sprite('d'+t,48,g=>{g.translate(24,24);g.fillStyle='rgba(8,10
 // ================= RENDER =================
 const cv=$('#cv'),ctx=cv.getContext('2d');let VW=0,VH=0,DPR=1;
 const CAM={x:0,y:0,z:1,minZ:.3,maxZ:4};
-function fitBounds(){if(!G)return;CAM.minZ=Math.min(VW/(G.W*CELL),VH/(G.H*CELL))*.92;CAM.z=clamp(CAM.z,CAM.minZ,CAM.maxZ);clampCam();}
+// you can zoom out past the theatre of war to see the neutral nations across the sea
+function fitBounds(){if(!G)return;const m=WM*.68;CAM.minZ=Math.min(VW/((G.W+m*2)*CELL),VH/((G.H+m*2)*CELL));CAM.z=clamp(CAM.z,CAM.minZ,CAM.maxZ);clampCam();}
 // keep the view on the map: no empty space unless the whole map already fits on screen
-function clampCam(){const mw=G.W*CELL,mh=G.H*CELL,hw=VW/2/CAM.z,hh=VH/2/CAM.z;
-  CAM.x=hw*2>=mw?mw/2:clamp(CAM.x,hw,mw-hw);CAM.y=hh*2>=mh?mh/2:clamp(CAM.y,hh,mh-hh);}
+function clampCam(){const m=WM*.85*CELL,x0=-m,y0=-m,mw=G.W*CELL+m*2,mh=G.H*CELL+m*2,hw=VW/2/CAM.z,hh=VH/2/CAM.z;
+  CAM.x=hw*2>=mw?x0+mw/2:clamp(CAM.x,x0+hw,x0+mw-hw);CAM.y=hh*2>=mh?y0+mh/2:clamp(CAM.y,y0+hh,y0+mh-hh);}
 const s2w=(sx,sy)=>[(sx-VW/2)/CAM.z+CAM.x,(sy-VH/2)/CAM.z+CAM.y];
 const w2s=(wx,wy)=>[(wx-CAM.x)*CAM.z+VW/2,(wy-CAM.y)*CAM.z+VH/2];
 function circ(c,x,y,r){c.beginPath();c.arc(x,y,r,0,TAU);}
@@ -157,12 +158,12 @@ function drawBld(b,s,show){
 }
 function computePlaceCells(){G.placeDirty=false;const out=[],N=G.W*G.H,t=G.place.type;for(let i=0;i<N;i++)if(G.own[i]===1&&!placeErr(1,t,i))out.push(i);G.placeCells=out;}
 function render(){
-  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#070a0d';ctx.fillRect(0,0,VW,VH);if(!G)return;
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle=G&&G.wcan?'#0d1c2f':'#070a0d';ctx.fillRect(0,0,VW,VH);if(!G)return;
   const z=CAM.z,shx=G.shake>.2?rnd(-G.shake,G.shake):0,shy=G.shake>.2?rnd(-G.shake,G.shake):0,WT=()=>ctx.setTransform(DPR*z,0,0,DPR*z,DPR*(VW/2-CAM.x*z+shx),DPR*(VH/2-CAM.y*z+shy));WT();
   const x0=CAM.x-VW/2/z-30,x1=CAM.x+VW/2/z+30,y0=CAM.y-VH/2/z-30,y1=CAM.y+VH/2/z+30;
-  const inV=(x,y)=>x>x0&&x<x1&&y>y0&&y<y1;
+  const inV=(x,y,m=0)=>x>x0-m&&x<x1+m&&y>y0-m&&y<y1+m;
   const cx0=Math.max(0,Math.floor(x0/CELL)),cx1=Math.min(G.W-1,Math.floor(x1/CELL)),cy0=Math.max(0,Math.floor(y0/CELL)),cy1=Math.min(G.H-1,Math.floor(y1/CELL));
-  ctx.imageSmoothingEnabled=true;ctx.drawImage(G.tcan,0,0);ctx.drawImage(G.ov,0,0,G.W*CELL,G.H*CELL);
+  drawWorld(z,inV);ctx.imageSmoothingEnabled=true;ctx.drawImage(G.tcan,0,0);ctx.drawImage(G.ov,0,0,G.W*CELL,G.H*CELL);
   ctx.lineJoin=ctx.lineCap='round';
   ctx.strokeStyle='rgba(235,240,245,.16)';ctx.lineWidth=Math.max(.8,1/z);ctx.setLineDash([3/Math.max(z,.4),3/Math.max(z,.4)]);ctx.stroke(G.provPath);ctx.setLineDash([]);
   for(const [p,c,t] of [[G.pathP,'62,166,255',1],[G.pathE,'255,79,94',2]]){if(!p)continue;ctx.strokeStyle=`rgba(${c},.25)`;ctx.lineWidth=Math.max(4,6/z);ctx.stroke(p);
@@ -174,12 +175,13 @@ function render(){
   const s=clamp(1.15/z,1,2.4),show=u=>u.team===1||G.demo||u.vis[1];
   for(const d of G.deps)if(inV(d.x,d.y)&&!G.bAt.has(d.ci)){const sz=11*s;ctx.drawImage(depSprite(d.type),d.x-sz/2,d.y-sz/2,sz,sz);}
   drawWalls(cx0,cy0,cx1,cy1,z);
-  for(const b of G.blds)if(inV(b.x,b.y))drawBld(b,s,b.owner===1);
+  drawFallout(z);
+  for(const c of G.cities)if(inV(c.x,c.y,40))drawCityArt(c,z);
+  for(const b of G.blds)if(inV(b.x,b.y))drawBldArt(b,s,b.owner===1);
   if(G.sel.length){ctx.setLineDash([4/z,4/z]);ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1/z;ctx.beginPath();
     for(const u of G.sel){if(UT[u.type].air){if(u.order&&!u.landed){ctx.moveTo(u.x,u.y);ctx.lineTo(u.order.x,u.order.y);}}else if(u.state!=='idle'){ctx.moveTo(u.x,u.y);ctx.lineTo(u.goalX,u.goalY);}}ctx.stroke();ctx.setLineDash([]);}
   for(const m of G.markers){const t=1-m.life/m.max;ctx.strokeStyle=`rgba(${m.c},${1-t})`;ctx.lineWidth=2/z;circ(ctx,m.x,m.y,(4+t*14)/Math.max(z,.6));ctx.stroke();}
-  if(z>.55)for(const v of G.civs){if(!inV(v.x,v.y)||(v.owner!==1&&!v.c.seen1&&!G.demo))continue;ctx.fillStyle=v.fl?'#ffd166':v.owner===1?`rgb(${220+v.shade*30|0},235,250)`:`rgb(250,${215+v.shade*25|0},218)`;
-    ctx.fillRect(v.x-.9,v.y-.9,1.8,1.8);}
+  drawCivs(z,inV);
   for(const w of G.wrecks)if(inV(w.x,w.y))drawWreck(w,s);
   for(const u of G.units)if(!u.dead&&!UT[u.type].air&&inV(u.x,u.y)&&show(u))drawGround(u,s);
   for(const c of G.cities)if(inV(c.x,c.y))drawCity(c,z);
@@ -200,6 +202,11 @@ function render(){
   ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
   for(const p of G.parts)if(p.c==='smoke'){ctx.fillStyle=`rgba(40,40,40,${.35*p.life/p.max})`;circ(ctx,p.x,p.y,p.sz*(2-p.life/p.max));ctx.fill();}
   for(const f of G.falling)if(inV(f.x,f.y))drawFalling(f,s);
+  drawStrikes(z);drawNukes();drawClouds(z);
+  if(G.target){const T=G.target,p=T.pt||(hoverX>=0?(([x,y])=>({x,y}))(s2w(hoverX,hoverY)):null);if(p){const R=STRIKE[T.k].r,nk=T.k==='nuke',a=.6+.4*Math.sin(G.time*8);
+    ctx.fillStyle=nk?'rgba(255,60,60,.12)':'rgba(255,120,60,.1)';circ(ctx,p.x,p.y,R);ctx.fill();ctx.strokeStyle=`rgba(255,${nk?70:120},80,${a})`;ctx.lineWidth=2/Math.max(z,.4);circ(ctx,p.x,p.y,R);ctx.stroke();
+    ctx.beginPath();for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ctx.moveTo(p.x+dx*R*.55,p.y+dy*R*.55);ctx.lineTo(p.x+dx*R*1.15,p.y+dy*R*1.15);}ctx.stroke();
+    if(!T.pt){ctx.globalAlpha=.6;}ctx.fillStyle='#ff5a5a';circ(ctx,p.x,p.y,2.4/Math.max(z,.4));ctx.fill();ctx.globalAlpha=1;}}
   for(const u of G.units)if(!u.dead&&UT[u.type].air&&!u.landed&&inV(u.x,u.y)&&show(u))drawPlane(u,s);
   ctx.setTransform(DPR,0,0,DPR,0,0);ctx.font='800 10px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
   if(!G.demo)for(const d of G.divs){if(d.team!==1||!d.units.length)continue;const c=centroid(d.units);const [sx,sy]=w2s(c.x,c.y);
