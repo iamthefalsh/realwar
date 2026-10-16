@@ -102,7 +102,9 @@ const depSprite=t=>sprite('d'+t,48,g=>{g.translate(24,24);g.fillStyle='rgba(8,10
 const cv=$('#cv'),ctx=cv.getContext('2d');let VW=0,VH=0,DPR=1;
 const CAM={x:0,y:0,z:1,minZ:.3,maxZ:4};
 function fitBounds(){if(!G)return;CAM.minZ=Math.min(VW/(G.W*CELL),VH/(G.H*CELL))*.92;CAM.z=clamp(CAM.z,CAM.minZ,CAM.maxZ);clampCam();}
-function clampCam(){CAM.x=clamp(CAM.x,0,G.W*CELL);CAM.y=clamp(CAM.y,0,G.H*CELL);}
+// keep the view on the map: no empty space unless the whole map already fits on screen
+function clampCam(){const mw=G.W*CELL,mh=G.H*CELL,hw=VW/2/CAM.z,hh=VH/2/CAM.z;
+  CAM.x=hw*2>=mw?mw/2:clamp(CAM.x,hw,mw-hw);CAM.y=hh*2>=mh?mh/2:clamp(CAM.y,hh,mh-hh);}
 const s2w=(sx,sy)=>[(sx-VW/2)/CAM.z+CAM.x,(sy-VH/2)/CAM.z+CAM.y];
 const w2s=(wx,wy)=>[(wx-CAM.x)*CAM.z+VW/2,(wy-CAM.y)*CAM.z+VH/2];
 function circ(c,x,y,r){c.beginPath();c.arc(x,y,r,0,TAU);}
@@ -181,6 +183,9 @@ function render(){
   for(const w of G.wrecks)if(inV(w.x,w.y))drawWreck(w,s);
   for(const u of G.units)if(!u.dead&&!UT[u.type].air&&inV(u.x,u.y)&&show(u))drawGround(u,s);
   for(const c of G.cities)if(inV(c.x,c.y))drawCity(c,z);
+  if(G.tut&&G.tut.mark){const m=G.tut.mark,r=(26+5*Math.sin(G.time*5))*clamp(1/z,.8,2.2);ctx.strokeStyle='rgba(255,209,102,.95)';ctx.lineWidth=3*clamp(1/z,.8,2.2);
+    ctx.setLineDash([7,5]);ctx.lineDashOffset=-G.time*20;circ(ctx,m.x,m.y,r);ctx.stroke();ctx.setLineDash([]);ctx.lineDashOffset=0;
+    ctx.fillStyle='rgba(255,209,102,.95)';const ay=m.y-r-6-4*Math.sin(G.time*5),k=clamp(1/z,.8,2.2);ctx.beginPath();ctx.moveTo(m.x,ay);ctx.lineTo(m.x-6*k,ay-9*k);ctx.lineTo(m.x+6*k,ay-9*k);ctx.fill();}
   WT();
   for(const u of G.units)if(!u.dead&&u.landed&&inV(u.x,u.y)&&show(u))drawPlane(u,s);
   for(const p of G.proj)drawProj(p,s);

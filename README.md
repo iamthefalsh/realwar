@@ -12,6 +12,14 @@ A mobile-first real-time war and nation-building game in a single HTML file.
 - An internal market plus 6 neutral nations to trade with, hire from and sign treaties with.
 - A fair AI: same economy, mirrored map, and a human-like action rate. Difficulty only changes how fast and well it thinks.
 
+## Controls
+Works on phones and PCs; press **?** in game (or **Controls** in the menu) for the full list.
+- **PC:** left-click to select, left-drag to box-select (Shift adds), double-click to select a whole division or unit type. Right-click to move or attack, right/middle-drag to pan, and scroll to zoom. On the keyboard: WASD or arrows to pan, Ctrl+A for the whole army, Ctrl+1–9 to save a group and 1–9 to recall it (twice to jump), F form division, X hold, R retreat, T refuel, Q/B/M/G/P for tabs, C capital, Z speed, Space pause. Edge scrolling can be switched off in the pause menu.
+- **Phone:** tap to select, then tap the map to move. Drag to pan, pinch to zoom, hold and drag to box-select.
+
+## Training
+**Training** in the menu is a 12-step guided mission against a passive enemy. You move the map, select and move troops, capture a city, build a farm and an iron mine, recruit, form a division, then use the market, people and world tabs before going to war. Each step waits until you actually do it, highlights the button to press, and has **Show me** / **Skip**.
+
 ## Online multiplayer
 Tap **PLAY ONLINE**, enter a name and tap **FIND MATCH**. The first two players in the queue are paired.
 
@@ -42,7 +50,7 @@ The server is a Cloudflare Worker with Durable Objects (free plan). It lives in 
 | `test/` | Headless Playwright checks (simulations, UI flows, screenshots) |
 | `PLAN.md` | Design notes |
 
-Source modules: `head.html` (styles and markup), `data.js` (constants, icons, flags, portraits), `map.js` (map generation and pathfinding), `game.js` (units, combat, conquest, simulation step), `econ.js` (economy, diplomacy, citizens), `ai.js`, `commands.js` (every player action, shared with the server), `render.js`, `art.js` (unit art and effects), `mp.js` (online client), `ui.js`, and `server-shim.js` (server build only).
+Source modules: `pc.js` (keyboard, edge scrolling, control groups), `tutorial.js` (training mission), `head.html` (styles and markup), `data.js` (constants, icons, flags, portraits), `map.js` (map generation and pathfinding), `game.js` (units, combat, conquest, simulation step), `econ.js` (economy, diplomacy, citizens), `ai.js`, `commands.js` (every player action, shared with the server), `render.js`, `art.js` (unit art and effects), `mp.js` (online client), `ui.js`, and `server-shim.js` (server build only).
 
 ## Editing
 Change files in `src/`, then run `./build.sh` and commit `index.html` and `server/src/sim.js` together. Never edit those two files by hand, because the next build overwrites them.

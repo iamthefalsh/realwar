@@ -23,8 +23,8 @@ function frame(now){
   else if(G&&!G.paused){if(!G.over)for(let i=0;i<G.speed;i++)update(dt);updateFx(dt);civTick(dt);if(!G.demo&&!G.over){alerts();advisor();}}
   if(G&&G.demo){if(G.over){if(!demoEnd)demoEnd=now+2500;else if(now>demoEnd){demoEnd=0;startDemo();}}
     CAM.z=CAM.minZ*1.08;CAM.x=G.W*CELL/2+Math.sin(now/9000)*40;CAM.y=G.H*CELL/2+Math.cos(now/11000)*30;}
-  render();
-  if(G&&!G.demo){if((uiT-=dt)<=0){uiT=.25;uiTick();}
+  camTick(dt);render();
+  if(G&&!G.demo){if((uiT-=dt)<=0){uiT=.25;uiTick();tutTick();}
     if(G.selDirty){G.selDirty=false;renderPanel();}
     if(G.divDirty){G.divDirty=false;renderDivBar();}}
   requestAnimationFrame(frame);
@@ -57,9 +57,30 @@ function onTap(sx,sy,long){
   const c=pickCity(wx,wy);if(c){openCity(c);return;}
   if(G.selCity||G.selBld||G.tab){clearFocus();G.tab=null;G.country=null;G.selDirty=true;}
 }
-function boxSelect(g){const x0=Math.min(g.sx,g.ex),x1=Math.max(g.sx,g.ex),y0=Math.min(g.sy,g.ey),y1=Math.max(g.sy,g.ey);
+function boxSelect(g,add){const x0=Math.min(g.sx,g.ex),x1=Math.max(g.sx,g.ex),y0=Math.min(g.sy,g.ey),y1=Math.max(g.sy,g.ey);
   const l=G.units.filter(u=>{if(u.team!==1||u.dead||u.landed)return false;const [sx,sy]=w2s(u.x,u.y);return sx>=x0&&sx<=x1&&sy>=y0&&sy<=y1;});
-  setSel(l);boxMode=false;$('#bBox').classList.remove('on');}
+  setSel(add?[...new Set([...G.sel,...l])]:l);boxMode=false;$('#bBox').classList.remove('on');if(l.length)sfx('blip');}
+// ---- mouse (PC): left = select / box, right = command, right/middle drag = pan ----
+function orderAt(sx,sy){const [wx,wy]=s2w(sx,sy),e=pickUnit(wx,wy,2),tx=e?e.x:wx,ty=e?e.y:wy;
+  if(G.peace&&G.own[cellIdx(tx,ty)]===2&&!(G.alertT.bord>G.time)){G.alertT.bord=G.time+4;toast('Borders are closed until war is declared','','warn');}
+  doCmd('move',{ids:G.sel.map(u=>u.id),x:tx,y:ty,tid:e?e.id:0});G.markers.push({x:tx,y:ty,life:.6,max:.6,c:e?'255,110,110':'255,255,255'});sfx('blip');}
+function leftClick(sx,sy,shift){
+  if(!G||G.demo||G.over)return;const [wx,wy]=s2w(sx,sy);
+  if(G.place){placeAt(wx,wy);return;}
+  const u=pickUnit(wx,wy,1);
+  if(u){if(shift){const has=G.sel.includes(u);setSel(has?G.sel.filter(x=>x!==u):[...G.sel,u]);}else setSel([u]);sfx('blip');return;}
+  if(shift)return;
+  const c=pickCity(wx,wy,13*clamp(1/CAM.z,.75,2.2));if(c){openCity(c);return;}
+  const b=pickBld(wx,wy);if(b){setSel([]);G.tab=null;G.selBld=b;G.selDirty=true;sfx('blip');return;}
+  const c2=pickCity(wx,wy);if(c2){openCity(c2);return;}
+  if(G.sel.length)setSel([]);
+  if(G.selCity||G.selBld||G.tab){clearFocus();G.tab=null;G.country=null;G.selDirty=true;}
+}
+function rightClick(sx,sy){if(!G||G.demo||G.over)return;if(G.place){endPlace();return;}if(G.sel.length)orderAt(sx,sy);}
+function dblPick(sx,sy){if(!G||G.demo||G.place)return;const [wx,wy]=s2w(sx,sy),u=pickUnit(wx,wy,1);if(!u)return;
+  if(u.div)setSel(u.div.units);else setSel(G.units.filter(o=>o.team===1&&o.type===u.type&&!o.landed&&(([x,y])=>x>=0&&y>=0&&x<=VW&&y<=VH)(w2s(o.x,o.y))));sfx('blip');}
+const isMouse=e=>e.pointerType==='mouse';
+let hoverX=-1,hoverY=-1,lastClick={t:0,x:0,y:0};
 function paintTo(sx,sy){const [wx,wy]=s2w(sx,sy),cx=clamp(Math.floor(wx/CELL),0,G.W-1),cy=clamp(Math.floor(wy/CELL),0,G.H-1);
   let x=gest.lx==null?cx:gest.lx,y=gest.ly==null?cy:gest.ly;const dx=Math.abs(cx-x),dy=-Math.abs(cy-y),sx2=x<cx?1:-1,sy2=y<cy?1:-1;let err=dx+dy;
   const cells=[];
@@ -67,8 +88,13 @@ function paintTo(sx,sy){const [wx,wy]=s2w(sx,sy),cx=clamp(Math.floor(wx/CELL),0,
     if(x===cx&&y===cy)break;const e2=2*err;if(e2>=dy){err+=dy;x+=sx2;}if(e2<=dx){err+=dx;y+=sy2;}}
   gest.lx=cx;gest.ly=cy;if(cells.length)placeCells('wall',cells);}
 function finishPaint(){if(gest&&gest.type==='paint'&&gest.err&&!gest.ok)toast(gest.err,'bad');gest=null;}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('pointerdown',e=>{
-  if(!G||G.demo)return;cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(!G||G.demo)return;cv.setPointerCapture(e.pointerId);
+  if(isMouse(e)){e.preventDefault();
+    if(e.button===0&&G.place&&G.place.type==='wall'){gest={type:'paint',lx:null,ly:null,err:'',ok:0,mouse:1};paintTo(e.clientX,e.clientY);return;}
+    gest={type:e.button===0?'lpend':e.button===2?'rpend':'pan',sx:e.clientX,sy:e.clientY,ex:e.clientX,ey:e.clientY,cx:CAM.x,cy:CAM.y,shift:e.shiftKey,mouse:1,btn:e.button};return;}
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(ptrs.size===1){
     if(G.place&&G.place.type==='wall'){gest={type:'paint',lx:null,ly:null,err:'',ok:0};paintTo(e.clientX,e.clientY);return;}
     gest={type:'pend',sx:e.clientX,sy:e.clientY,ex:e.clientX,ey:e.clientY,cx:CAM.x,cy:CAM.y,box:boxMode,lp:false};
@@ -77,6 +103,12 @@ cv.addEventListener('pointerdown',e=>{
     gest={type:'pinch',d0:Math.hypot(a.x-b.x,a.y-b.y)||1,z0:CAM.z,wx,wy};}
 });
 cv.addEventListener('pointermove',e=>{
+  if(isMouse(e)){hoverX=e.clientX;hoverY=e.clientY;if(!gest||!gest.mouse){mouseCursor();return;}
+    if(gest.type==='paint'){paintTo(e.clientX,e.clientY);return;}
+    gest.ex=e.clientX;gest.ey=e.clientY;const far=Math.hypot(gest.ex-gest.sx,gest.ey-gest.sy)>6;
+    if(gest.type==='lpend'&&far&&!G.place)gest.type='box';else if(gest.type==='rpend'&&far)gest.type='pan';
+    if(gest.type==='pan'){CAM.x=gest.cx-(gest.ex-gest.sx)/CAM.z;CAM.y=gest.cy-(gest.ey-gest.sy)/CAM.z;clampCam();}
+    return;}
   if(!ptrs.has(e.pointerId)||!gest)return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(gest.type==='pinch'&&ptrs.size>=2){const [a,b]=[...ptrs.values()],mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
     CAM.z=clamp(gest.z0*Math.hypot(a.x-b.x,a.y-b.y)/gest.d0,CAM.minZ,CAM.maxZ);CAM.x=gest.wx-(mx-VW/2)/CAM.z;CAM.y=gest.wy-(my-VH/2)/CAM.z;clampCam();return;}
@@ -86,6 +118,13 @@ cv.addEventListener('pointermove',e=>{
   if(gest.type==='pan'){CAM.x=gest.cx-(gest.ex-gest.sx)/CAM.z;CAM.y=gest.cy-(gest.ey-gest.sy)/CAM.z;clampCam();}
 });
 function endPtr(e,cancel){
+  if(isMouse(e)){const g=gest;if(!g||!g.mouse)return;gest=null;if(cancel)return;
+    if(g.type==='paint'){gest=g;finishPaint();return;}
+    if(g.type==='box')boxSelect(g,g.shift||e.shiftKey);
+    else if(g.type==='lpend'){const now=performance.now();if(now-lastClick.t<330&&Math.hypot(g.sx-lastClick.x,g.sy-lastClick.y)<8){dblPick(g.sx,g.sy);lastClick.t=0;}
+      else{leftClick(g.sx,g.sy,g.shift||e.shiftKey);lastClick={t:now,x:g.sx,y:g.sy};}}
+    else if(g.type==='rpend')rightClick(g.sx,g.sy);
+    return;}
   if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);clearTimeout(lpTimer);if(!gest)return;
   if(gest.type==='paint'){finishPaint();return;}
   if(gest.type==='pinch'){if(ptrs.size===1){const p=[...ptrs.values()][0];gest={type:'pan',sx:p.x,sy:p.y,ex:p.x,ey:p.y,cx:CAM.x,cy:CAM.y};}else if(!ptrs.size)gest=null;return;}
@@ -95,12 +134,12 @@ function endPtr(e,cancel){
 cv.addEventListener('pointerup',e=>endPtr(e,false));cv.addEventListener('pointercancel',e=>endPtr(e,true));
 cv.addEventListener('wheel',e=>{if(!G||G.demo)return;e.preventDefault();const [wx,wy]=s2w(e.clientX,e.clientY);
   CAM.z=clamp(CAM.z*Math.exp(-e.deltaY*.0015),CAM.minZ,CAM.maxZ);CAM.x=wx-(e.clientX-VW/2)/CAM.z;CAM.y=wy-(e.clientY-VH/2)/CAM.z;clampCam();},{passive:false});
-addEventListener('keydown',e=>{if(!G||G.demo)return;if(e.key===' '){togglePause();e.preventDefault();}if(e.key==='Escape'){if(G.place)endPlace();else setSel([]);}});
+cv.addEventListener('pointerleave',e=>{if(isMouse(e)){hoverX=-1;hoverY=-1;}});
 document.addEventListener('gesturestart',e=>e.preventDefault());
 
 // ================= PLACEMENT =================
 function startPlace(t){G.place={type:t,n:0};G.placeDirty=true;setSel([]);G.tab=null;G.selDirty=true;
-  toast(t==='wall'?'Drag across your land to paint walls':`Tap a highlighted spot to build a ${BT[t].n}`,'',BT[t].ico);}
+  toast(t==='wall'?(IS_PC?'Left-drag across your land to paint walls. Right-click to stop':'Drag across your land to paint walls'):`${IS_PC?'Click':'Tap'} a highlighted spot to build a ${BT[t].n}${IS_PC?'. Right-click to stop':''}`,'',BT[t].ico);}
 function endPlace(){G.place=null;G.placeCells=null;G.tab='build';G.selDirty=true;}
 function placeCells(t,cells){const r=doCmd('place',{type:t,cells});if(!r){G.place.n+=cells.length;G.placeDirty=true;if(gest&&gest.type==='paint')gest.ok++;sfx('build');}return r}
 function placeOne(t,i){const e=placeErr(1,t,i);if(e)return e;const m=missing(G.E[1],BT[t].cost);if(m)return 'Not enough '+m;return placeCells(t,[i])}
@@ -119,7 +158,7 @@ function voiceToast(p){const T=$('#toasts'),el=document.createElement('div');el.
   el.querySelector('span').textContent='“'+p.text+'”';T.prepend(el);while(T.children.length>3)T.lastChild.remove();setTimeout(()=>el.classList.add('out'),4200);setTimeout(()=>el.remove(),4700);}
 const TABS=[['army','ARMY','t_army'],['build','BUILD','t_build'],['market','MARKET','t_market'],['world','WORLD','t_world'],['people','PEOPLE','t_people']];
 function renderTabs(){const cur=!G.sel.length&&!G.selCity&&!G.selBld&&!G.place?G.tab:null;
-  $('#tabs').innerHTML=TABS.map(([k,n,i])=>`<button class="tab${cur===k?' on':''}" data-tab="${k}">${svgI(i)}${n}<span class="badge hide" data-badge="${k}"></span></button>`).join('');}
+  $('#tabs').innerHTML=TABS.map(([k,n,i])=>`<button class="tab${cur===k?' on':''}" data-tab="${k}">${svgI(i)}${n}<kbd>${TAB_KEY[k]}</kbd><span class="badge hide" data-badge="${k}"></span></button>`).join('');}
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b||!G)return;const k=b.dataset.tab;if(G.place)G.place=null;
   const cur=!G.sel.length&&!G.selCity&&!G.selBld?G.tab:null;setSel([]);G.tab=cur===k?null:k;if(k!=='world')G.country=null;G.selDirty=true;sfx('blip');});
 function renderResBar(){
@@ -133,6 +172,7 @@ function uiTick(){
   $('#tbP').style.width=p+'%';$('#tbE').style.width=q+'%';$('#tDate').textContent=dateStr(G.time);
   const ph=$('#phase');
   if(G.mp){ph.className='war';$('#phT').textContent=`ONLINE · VS ${MP.opp.toUpperCase()} · ${fmtT(G.time)}${MP.ping?' · '+MP.ping+'MS':''}`;$('#phB').parentNode.style.display='none';}
+  else if(G.tut&&G.peace){ph.className='peace';$('#phT').textContent=`TRAINING · STEP ${Math.min(G.tut.i+1,TUT.length)} OF ${TUT.length}`;$('#phB').style.width=(100*Math.max(0,G.tut.i)/TUT.length)+'%';$('#phB').parentNode.style.display='';}
   else if(G.peace){ph.className='peace';$('#phT').textContent='PEACE · WAR IN '+durStr(G.peaceEnd-G.time);$('#phB').style.width=(100*G.time/G.peaceEnd)+'%';$('#phB').parentNode.style.display='';}
   else{ph.className='war';$('#phT').textContent='AT WAR · '+fmtT(G.time-G.peaceEnd);$('#phB').parentNode.style.display='none';}
   liveUpdate($('#resBar'));
@@ -205,7 +245,7 @@ function renderPanel(){
   if(!k){P.classList.add('hide');P.innerHTML='';G.pk='';return;}
   P.classList.remove('hide');const keep=G.pk===k?P.scrollTop:0;
   P.innerHTML=G.sel.length?selPanel():G.selCity?cityPanel(G.selCity):G.selBld?bldPanel(G.selBld):G.country?countryPanel(G.country):TABP[G.tab]();
-  P.scrollTop=keep;G.pk=k;G.peopleSig=null;liveUpdate(P);
+  P.scrollTop=keep;G.pk=k;G.peopleSig=null;liveUpdate(P);tutHighlight();
 }
 function selPanel(){
   const {cnt,div}=selInfo(),n=G.sel.length,ar=G.sel.every(u=>u.retreatOn),onlyAir=G.sel.every(u=>UT[u.type].air),veh=G.sel.some(u=>UT[u.type].cls==='veh'),allies=G.sel.filter(u=>u.ally!=null).length;
@@ -215,7 +255,7 @@ function selPanel(){
   <div class="acts">${div?`<button data-act="disband">Disband</button>`:`<button data-act="form" class="pri">Form Division</button>`}
   ${n>1?`<button data-act="split">Split</button>`:''}<button data-act="stop">${onlyAir?'Return to base':'Hold'}</button>
   ${onlyAir?'':`<button data-act="retreat">Retreat</button>${veh?'<button data-act="refuel">Refuel</button>':''}<button data-act="autoret" class="${ar?'on':''}">Auto-retreat ${ar?'ON':'OFF'}</button>`}</div>
-  <div class="hint">${G.peace?'Peacetime: enemy borders are closed. Claim neutral land and cities. ':''}Tap map to move · tap enemy to attack${onlyAir?' · bombers hit buildings & walls near the target · tap a base to land':''}</div>`;
+  <div class="hint">${G.peace?'Peacetime: enemy borders are closed. Claim neutral land and cities. ':''}${IS_PC?'Right-click to move · right-click an enemy to attack · F division · X hold · R retreat · Ctrl+1–9 save group':'Tap map to move · tap enemy to attack'}${onlyAir?(IS_PC?' · bombers hit buildings & walls near the target · right-click a base to land':' · bombers hit buildings & walls near the target · tap a base to land'):''}</div>`;
 }
 function renderQueue(q,c){const sig=c.queue.join(',');if(q.dataset.sig!==sig){q.dataset.sig=sig;q.innerHTML=c.queue.length?c.queue.map((t,i)=>`<button class="qi" data-act="cancel" data-i="${i}">${uIcon(t,TC[1].l)}${i===0?'<div class="pg"></div>':''}</button>`).join('')+'<span class="qe">tap to cancel</span>':'<span class="qe">Queue empty. Pick a unit below</span>';}
   const pg=q.querySelector('.pg');if(pg&&c.queue.length)pg.style.width=(c.prog/UT[c.queue[0]].time*100)+'%';}
@@ -375,17 +415,18 @@ for(const [id,key] of [['#sDiff','diff'],['#sSize','size'],['#sPrep','prep']])$(
   menuOpts[key]=b.dataset.v;for(const x of $(id).children)x.classList.toggle('on',x===b);});
 $('#bStart').onclick=()=>{initAudio();if(AC&&AC.state==='suspended')AC.resume();startGame({...menuOpts});};
 function startGame(opts){
-  if(G&&G.mp)mpLeave();newGame(opts);resetUI();G.qty=10;prepWarned=0;tipI=0;mEvT=35;$('#bSpeed').style.display='';
+  if(G&&G.mp)mpLeave();$('#coach').classList.add('hide');newGame(opts);resetUI();G.qty=10;prepWarned=0;tipI=0;mEvT=35;$('#bSpeed').style.display='';
   $('#menu').classList.add('hide');$('#pauseScr').classList.add('hide');$('#endScr').classList.add('hide');$('#ui').style.display='';
   fitBounds();sizeMini();renderResBar();renderTabs();const cap=capitalOf(1);
   CAM.z=clamp(Math.min(VW,VH)/360,CAM.minZ,CAM.maxZ);CAM.x=cap.x;CAM.y=cap.y;clampCam();
   $('#bSpeed').textContent='1×';uiTick();
+  if(opts.tut)return;
   setTimeout(()=>{if(G.peace){toast(`${G.nat[1].full}: ${durStr(G.peaceEnd)} of peace to prepare for war with ${G.nat[2].name}`,'', 'warn');voice(1,'prep',{},true);}
     else toast('War from day one! Tap your capital to recruit','bad','warn');},500);
 }
 function resetUI(){$('#panel').classList.add('hide');$('#panel').innerHTML='';$('#place').classList.add('hide');$('#toasts').innerHTML='';boxMode=false;$('#bBox').classList.remove('on');gest=null;ptrs.clear();G.pk=null;}
 function startDemo(){newGame({size:'small',diff:'normal',demo:true});fitBounds();}
-function toMenu(){if(G&&G.mp){mpLeave();$('#bSpeed').style.display='';}$('#mpScr').classList.add('hide');$('#pauseScr').classList.add('hide');$('#endScr').classList.add('hide');$('#ui').style.display='none';resetUI();startDemo();$('#menu').classList.remove('hide');}
+function toMenu(){if(G&&G.mp){mpLeave();$('#bSpeed').style.display='';}$('#coach').classList.add('hide');$('#mpScr').classList.add('hide');$('#pauseScr').classList.add('hide');$('#endScr').classList.add('hide');$('#ui').style.display='none';resetUI();startDemo();$('#menu').classList.remove('hide');}
 function gameOver(res,why){
   if(G.over)return;G.over=true;G.result=res+':'+why;if(G.demo)return;
   setTimeout(()=>{const s=G.mpStats||G.stats[1],E=G.E[1];$('#endTitle').textContent=res==='win'?'VICTORY':'DEFEAT';$('#endTitle').className='res '+res;

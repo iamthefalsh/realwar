@@ -43,8 +43,8 @@ const BT={
  iron:{n:'Iron Mine',ico:'iron',cost:{$:70,wood:15},time:7,hp:140,on:'dep',dep:'iron',work:1100,out:{iron:1.1},d:'On an iron deposit'},
  oil:{n:'Oil Well',ico:'oil',cost:{$:100,wood:10,iron:10},time:8,hp:120,on:'dep',dep:'oil',work:700,out:{oil:1.2},d:'Petrol. Oil deposit'},
  gold:{n:'Gold Mine',ico:'gold',cost:{$:120,wood:20},time:9,hp:140,on:'dep',dep:'gold',work:1300,out:{gold:.22},d:'On a gold deposit'},
- steel:{n:'Steel Mill',ico:'steel',cost:{$:150,wood:20,iron:15},time:10,hp:200,on:'land',work:1500,inp:{iron:1,coal:.6},out:{steel:.8},d:'Iron + coal → steel'},
- arms:{n:'Arms Factory',ico:'guns',cost:{$:140,wood:15,iron:15},time:10,hp:200,on:'land',work:1400,inp:{iron:.5,wood:.4},out:{guns:1},d:'Iron + wood → guns'},
+ steel:{n:'Steel Mill',ico:'steel',cost:{$:150,wood:20,iron:15},time:10,hp:200,on:'land',work:1500,inp:{iron:1,coal:.6},out:{steel:.8},d:'Iron + coal make steel'},
+ arms:{n:'Arms Factory',ico:'guns',cost:{$:140,wood:15,iron:15},time:10,hp:200,on:'land',work:1400,inp:{iron:.5,wood:.4},out:{guns:1},d:'Iron + wood make guns'},
  wall:{n:'Wall',ico:'wall',cost:{$:6,wood:4,iron:1},time:1.5,hp:900,on:'wall',d:'Blocks enemy troops. Drag to paint'},
 };
 const BTYPES=Object.keys(BT);
@@ -855,7 +855,7 @@ function update(dt){
   if((G.terrT-=dt)<=0){G.terrT=.25;terrTick(.25);}
   if((G.econT-=dt)<=0){G.econT=.5;econTick(.5);}
   if(G.over)return;
-  if(!G.mp){aiTick(2,dt);if(G.demo)aiTick(1,dt);}
+  if(!G.mp){if(!(G.tut&&G.tut.calm))aiTick(2,dt);if(G.demo)aiTick(1,dt);}
   if(G.units.some(u=>u.dead)){G.units=G.units.filter(u=>!u.dead);
     const n=G.sel.length;G.sel=G.sel.filter(u=>!u.dead);if(G.sel.length!==n)G.selDirty=true;
     for(const d of G.divs.slice()){const m=d.units.length;d.units=d.units.filter(u=>!u.dead);if(d.units.length!==m)G.divDirty=true;if(!d.units.length&&!(d.team!==1&&d.retreating))disband(d);}}
