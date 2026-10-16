@@ -5,12 +5,27 @@ function explode(x,y,s){G.fx.push({k:'ex',x,y,r:9*s,life:.45,max:.45});
   for(let i=0;i<3*s&&G.parts.length<600;i++)G.parts.push({x:x+rnd(-4,4),y:y+rnd(-4,4),vx:rnd(-6,6),vy:rnd(-14,-4),life:rnd(.8,1.6),max:1.6,sz:rnd(3,6)*s,c:'smoke'});}
 function puff(x,y,c,n){for(let i=0;i<n&&G.parts.length<600;i++){const a=Math.random()*TAU;G.parts.push({x,y,vx:Math.cos(a)*20,vy:Math.sin(a)*20,life:.25,max:.25,sz:1.3,c});}}
 function muzzle(x,y,a,s){G.fx.push({k:'mz',x:x+Math.cos(a)*7,y:y+Math.sin(a)*7,a,s,life:.08,max:.08});}
+// visual hooks called by the simulation (the match server records them as events instead)
+function mzFx(x,y,a,s,delay){G.fx.push({k:'mz',x,y,a,s,life:.07,max:.07,delay});}
+function exFx(x,y,r){G.fx.push({k:'ex',x,y,r,life:.25,max:.25});}
+function flakFx(x,y){G.fx.push({k:'flak',x,y,life:.45,max:.45});}
+function shotEv(){}
+function addWreck(t){G.wrecks.push({x:t.x,y:t.y,ang:t.ang,tAng:t.tAng,type:t.type,team:t.team,t:G.time});}
+function addFalling(t){G.falling.push({x:t.x,y:t.y,ang:t.ang,type:t.type,team:t.team,t:0,spin:(Math.random()<.5?-1:1)*rnd(2,4),sp:UT[t.type].speed*.7});}
+function initVisuals(){const W=G.W,H=G.H;buildTerrain();
+  G.ov=document.createElement('canvas');G.ov.width=W;G.ov.height=H;G.ovCtx=G.ov.getContext('2d');G.ovImg=G.ovCtx.createImageData(W,H);
+  G.provPath=provBorders();refreshOwn();}
+function provBorders(){const W=G.W,H=G.H,P=G.prov,p=new Path2D();
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;
+    if(x<W-1&&P[i+1]!==P[i]){p.moveTo((x+1)*CELL,y*CELL);p.lineTo((x+1)*CELL,(y+1)*CELL);}
+    if(y<H-1&&P[i+W]!==P[i]){p.moveTo(x*CELL,(y+1)*CELL);p.lineTo((x+1)*CELL,(y+1)*CELL);}}
+  return p;}
 function scorch(x,y,r,a){const g=G.tctx,gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,`rgba(8,8,6,${a})`);gr.addColorStop(1,'rgba(8,8,6,0)');g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();}
 function updateFx(dt){
   for(const f of G.fx)f.life-=dt;G.fx=G.fx.filter(f=>f.life>0);
   for(const p of G.parts){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;}G.parts=G.parts.filter(p=>p.life>0);
   for(const m of G.markers)m.life-=dt;G.markers=G.markers.filter(m=>m.life>0);
-  for(const p of G.proj){p.t+=dt;if(p.t>=p.dur){p.done=true;projHit(p);}}G.proj=G.proj.filter(p=>!p.done);
+  if(G.mp)updateProj(dt);
   for(const f of G.fx)if(f.delay>0){f.delay-=dt;f.life+=dt;}
   G.shake*=Math.exp(-dt*9);updateArt(dt);
 }

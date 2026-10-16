@@ -168,6 +168,11 @@ details li{margin:5px 0}
 .stats b{display:block;font-size:20px}.stats span{font-size:11px;color:#8aa0b6;letter-spacing:1px}
 .res{font-size:38px;font-weight:900;letter-spacing:5px;margin:0}
 .res.win{color:#3ea6ff}.res.lose{color:#ff4f5e}
+.big.online{background:linear-gradient(90deg,#ff7a45,#ff4f5e);color:#1a0306;box-shadow:0 8px 24px rgba(255,79,94,.3);margin-top:10px}
+.inp{width:100%;min-height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#e8eef5;font:inherit;font-size:16px;padding:0 14px;outline:none;user-select:text;-webkit-user-select:text}
+.inp:focus{border-color:#3ea6ff}
+.mpst{min-height:38px;margin-top:12px;font-size:13px;color:#bfe3ff;font-weight:600}
+#mpScr,#mpScr *{touch-action:manipulation}
 #warBan{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:6}
 #warBan h1{margin:0;font-size:46px;font-weight:900;letter-spacing:8px;color:#ff4f5e;text-shadow:0 0 30px rgba(255,79,94,.6),0 4px 0 #5f0d16;animation:war 3.2s ease-out forwards}
 #warBan p{margin:6px 0 0;font-weight:800;letter-spacing:3px;color:#ffd3d7;animation:war 3.2s ease-out forwards}
@@ -208,7 +213,8 @@ details li{margin:5px 0}
     <div class="opt"><label>DIFFICULTY</label><div class="seg" id="sDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div></div>
     <div class="opt"><label>MAP SIZE</label><div class="seg" id="sSize"><button data-v="small">Small</button><button data-v="medium" class="on">Medium</button><button data-v="large">Large</button></div></div>
     <div class="opt"><label>PREPARATION BEFORE WAR</label><div class="seg" id="sPrep"><button data-v="0">None</button><button data-v="2">2 years</button><button data-v="5" class="on">5 years</button></div></div>
-    <button class="big" id="bStart">DEPLOY</button>
+    <button class="big" id="bStart">PLAY VS AI</button>
+    <button class="big online" id="bOnline">PLAY ONLINE</button>
     <details>
       <summary>How to play</summary>
       <ul>
@@ -223,6 +229,20 @@ details li{margin:5px 0}
         <li>The enemy plays by your rules: same economy, same map (mirrored), and it only knows what its scouts have seen.</li>
       </ul>
     </details>
+  </div>
+</div>
+
+<div id="mpScr" class="screen hide">
+  <div class="box glass">
+    <h2 class="res" style="font-size:28px;color:#e8eef5">PLAY ONLINE</h2>
+    <div class="sub">REAL PLAYERS · SAME RULES · NO PEACE TIME</div>
+    <div class="opt"><label>YOUR NAME</label><input id="mpName" class="inp" maxlength="16" placeholder="Commander" autocomplete="off"></div>
+    <button class="big" id="bFind">FIND MATCH</button>
+    <div class="mpst" id="mpStatus"></div>
+    <details id="mpSrvBox"><summary>Server address</summary>
+      <div class="hint" style="margin:0 0 6px">Your Cloudflare Worker address, e.g. realwar-server.yourname.workers.dev</div>
+      <input id="mpSrv" class="inp" placeholder="realwar-server.yourname.workers.dev" autocomplete="off" autocapitalize="off" spellcheck="false"></details>
+    <button class="sec" id="bMpBack">Back</button>
   </div>
 </div>
 
@@ -628,16 +648,16 @@ const cellIdx=(x,y)=>clamp(Math.floor(y/CELL),0,G.H-1)*G.W+clamp(Math.floor(x/CE
 let G=null;
 function newGame(opts){
   const [a,b]=SIZES[opts.size];
-  const vertical=innerHeight>innerWidth;
+  const vertical=opts.vertical!=null?!!opts.vertical:(typeof innerHeight!=='undefined'&&innerHeight>innerWidth);
   const W=vertical?b:a,H=vertical?a:b,seed=(Math.random()*1e9)|0,N=W*H;
   const m=genMap(W,H,seed,vertical);
-  const prep=opts.demo?0:(+opts.prep||0);
+  const prep=opts.demo||opts.mp?0:(+opts.prep||0);
   G={W,H,seed,opts,vertical,terr:m.terr,elev:m.elev,cities:m.cities,deps:m.deps,depAt:m.depAt,prov:m.prov,adj:m.adj,roads:m.roads,road:m.road,
     units:[],proj:[],fx:[],parts:[],markers:[],civs:[],blds:[],bAt:new Map(),wrecks:[],falling:[],shake:0,
     wall:new Uint8Array(N),wallHp:new Float32Array(N),wallHit:new Float32Array(N),own:new Uint8Array(N),
     time:0,peaceEnd:prep*YEAR,peace:prep>0,terrPct:[0,0,0],divs:[],sel:[],selCity:null,demo:!!opts.demo,
     diff:DIFFS[opts.diff||'normal'],speed:opts.demo?2:1,paused:false,over:false,nextId:1,terrT:0,visT:0,visN:0,econT:0,civT:0,pathQ:[],
-    stats:{built:0,lost:0,kills:0,peak:0,caps:0,blds:0,traded:0,peakPop:0},ai:{},alertT:{},divDirty:true,selDirty:true,landCount:0,
+    stats:{1:newStats(),2:newStats()},mp:!!opts.mp,pvT:{1:8,2:10},ai:{},alertT:{},divDirty:true,selDirty:true,landCount:0,
     voices:[],tab:null,place:null,country:null,lastVoice:{}};
   for(let i=0;i<N;i++)if(G.terr[i]!==WATER)G.landCount++;
   G.provCells=G.cities.map(()=>[]);for(let i=0;i<N;i++)G.provCells[G.prov[i]].push(i);
@@ -645,9 +665,6 @@ function newGame(opts){
   for(const c of G.cities){c.pop=c.cap*(c.owner?.8:.45);c.cp=0;c.cpBy=0;c.cstate='';}
   G.E=[null,newEcon(1),newEcon(2)];
   G.countries=genCountries(seed);
-  buildTerrain();
-  G.ov=document.createElement('canvas');G.ov.width=W;G.ov.height=H;G.ovCtx=G.ov.getContext('2d');G.ovImg=G.ovCtx.createImageData(W,H);
-  G.provPath=provBorders();
   refreshOwn();
   // identical, mirrored starting positions for both nations
   for(const type of ['farm','farm','lumber','house']){const ci=findBuildSpot(1,type);if(ci<0)continue;addBld(type,1,ci,true);
@@ -655,8 +672,13 @@ function newGame(opts){
   const cap=capitalOf(1),off=[[-14,-10,'inf'],[14,-10,'inf'],[0,16,'inf'],[0,-2,'tank']];
   for(const [dx,dy,t] of off){spawnUnit(t,1,cap.x+dx,cap.y+dy);spawnUnit(t,2,(W*CELL)-(cap.x+dx),(H*CELL)-(cap.y+dy));}
   econTick(0);
+  if(!opts.headless)initVisuals();
   return G;
 }
+const newStats=()=>({built:0,lost:0,kills:0,peak:0,caps:0,blds:0,traded:0,peakPop:0});
+// messages for one nation: shown locally in single player, routed to that player online
+function note(t,msg,kind,ic,snd){if(!t||!G||G.demo)return;if(G.emit){G.emit(t,['n',msg||'',kind||'',ic||'',snd||'']);return;}
+  if(t!==1)return;if(msg)toast(msg,kind,ic);if(snd)sfx(snd);if(snd==='alert')vib(60);}
 const capitalOf=t=>G.cities.find(c=>c.type==='capital'&&c.owner===t);
 function spawnUnit(type,team,x,y,city,ally){
   const d=UT[type];
@@ -698,7 +720,7 @@ function addBld(type,owner,ci,instant){
 function removeBld(b){G.blds=G.blds.filter(x=>x!==b);G.bAt.delete(b.ci);if(G.place)G.placeDirty=true;}
 function damageWall(i,amt){G.wallHp[i]-=amt;G.wallHit[i]=G.time;
   if(G.wallHp[i]<=0){const t=G.wall[i];G.wall[i]=0;G.wallDirty=true;const x=(i%G.W+.5)*CELL,y=((i/G.W|0)+.5)*CELL;explode(x,y,.9);debris(x,y,10);
-    if(t===1&&!G.demo&&!(G.alertT.wall>G.time)){G.alertT.wall=G.time+15;toast('Enemy breached your wall!','bad','wall');}}}
+    if(t&&!(G.alertT['wall'+t]>G.time)){G.alertT['wall'+t]=G.time+15;note(t,'Enemy breached your wall!','bad','wall');}}}
 function damageBld(b,amt,by){b.hp-=amt;if(b.hp<=0)destroyBld(b,by);}
 function destroyBld(b,by){
   removeBld(b);explode(b.x,b.y,1.3);scorch(b.x,b.y,10,.35);debris(b.x,b.y,12);burn(b.x,b.y,25);
@@ -706,7 +728,7 @@ function destroyBld(b,by){
   E.sh.attack=Math.max(-30,E.sh.attack-(b.type==='house'?5:2.5));
   if(b.type==='house'&&b.city&&b.city.owner===b.owner){const dead=Math.min(b.city.pop*.04,700);b.city.pop-=dead;E.civDead+=dead;}
   for(const c of G.countries)if(c.persona==='pacifist'&&by)c.rel[by]-=b.type==='house'||b.type==='farm'?3:1.2;
-  if(b.owner===1&&!G.demo){toast(`Your ${BT[b.type].n} was destroyed`,'bad',BT[b.type].ico);voice(1,'bombed',{bld:BT[b.type].n.toLowerCase(),city:(b.city||nearestCity(b.x,b.y,1)||{name:''}).name});}
+  note(b.owner,`Your ${BT[b.type].n} was destroyed`,'bad',BT[b.type].ico);voice(b.owner,'bombed',{bld:BT[b.type].n.toLowerCase(),city:(b.city||nearestCity(b.x,b.y,b.owner)||{name:''}).name});
 }
 function captureBld(b,o){b.owner=o;b.prog=Math.max(b.prog,.5);if(b.type==='house')b.city=nearestCity(b.x,b.y,o);}
 
@@ -743,12 +765,12 @@ function damage(t,amt,ap,src){
 function nearWall(ci,team){const W=G.W;for(let k=0;k<4;k++){const n=ci+DX[k]+DY[k]*W;if(n>=0&&n<G.W*G.H&&G.wall[n]===team)return true;}return false}
 function kill(t,src){
   t.dead=true;t.hp=0;const d=UT[t.type];
-  if(d.air){G.falling.push({x:t.x,y:t.y,ang:t.ang,type:t.type,team:t.team,t:0,spin:(Math.random()<.5?-1:1)*rnd(2,4),sp:d.speed*.7});}
+  if(d.air)addFalling(t);
   else if(t.type==='inf'){for(let k=0;k<menOf({hp:t.maxHp*.2,maxHp:t.maxHp})+1;k++){const p=soldierPos(t,k);fallen(p[0],p[1],t.team,t.ang+rnd(-1,1));}puff(t.x,t.y,'rgba(120,110,90,.8)',5);}
-  else{explode(t.x,t.y,1.4);scorch(t.x,t.y,8,.35);debris(t.x,t.y,10);G.wrecks.push({x:t.x,y:t.y,ang:t.ang,tAng:t.tAng,type:t.type,team:t.team,t:G.time});shakeAt(t.x,t.y,3);}
+  else{explode(t.x,t.y,1.4);scorch(t.x,t.y,8,.35);debris(t.x,t.y,10);addWreck(t);shakeAt(t.x,t.y,3);}
   if(src&&!src.dead){src.xp++;src.rank=src.xp>=12?3:src.xp>=6?2:src.xp>=2?1:0;}
   const E=G.E[t.team];if(t.ally==null){E.cas+=d.cost.mp;E.weary+=d.cost.mp/140;}
-  if(t.team===1)G.stats.lost++;else if(src&&src.team===1)G.stats.kills++;
+  G.stats[t.team].lost++;if(src&&src.team!==t.team)G.stats[src.team].kills++;
   G.selDirty=true;
 }
 // where each soldier of a squad stands (world coords)
@@ -768,31 +790,33 @@ function fire(u,t,isPlane){
   if(!isPlane){if(u.type==='tank'||u.type==='aa'){}else u.ang=a;}
   if(w.shell){const [mx,my]=muzzlePos(u),D=Math.sqrt(dist2(mx,my,t.x,t.y));
     G.proj.push({kind:'shell',sx:mx,sy:my,tx:t.x+rnd(-9,9),ty:t.y+rnd(-9,9),t:0,dur:D/170+.5,dmg,splash:w.splash,ap:d.ap,team:u.team,src:u});
-    muzzle(mx,my,u.ang,2.2);smoke(mx,my,6);shakeAt(u.x,u.y,1);sfx('cannon',u.x,u.y);return;}
-  if(w.bomb){G.proj.push({kind:'bomb',sx:u.x,sy:u.y,tx:t.x+rnd(-5,5),ty:t.y+rnd(-5,5),t:0,dur:.75,dmg,splash:w.splash,ap:d.ap,team:u.team,src:u,ang:u.ang});sfx('whistle',u.x,u.y);return;}
+    mzFx(mx,my,u.ang,2.2,0);smoke(mx,my,6);shakeAt(u.x,u.y,1);sfx('cannon',u.x,u.y);shotEv(u,'shell',1,G.proj[G.proj.length-1].tx,G.proj[G.proj.length-1].ty,G.proj[G.proj.length-1].dur,0);return;}
+  if(w.bomb){const p={kind:'bomb',sx:u.x,sy:u.y,tx:t.x+rnd(-5,5),ty:t.y+rnd(-5,5),t:0,dur:.75,dmg,splash:w.splash,ap:d.ap,team:u.team,src:u,ang:u.ang};G.proj.push(p);sfx('whistle',u.x,u.y);shotEv(u,'bomb',1,p.tx,p.ty,p.dur,0);return;}
   const kind=u.type==='tank'?'ap':u.type==='aa'&&t.air?'flak':'bullet';
   const n=u.type==='inf'?Math.min(3,menOf(u)):u.type==='aa'?4:isPlane?4:u.type==='tank'?1:2;
   const speed=kind==='ap'?900:kind==='flak'?620:720;
   for(let k=0;k<n;k++){const [mx,my]=muzzlePos(u,u.type==='inf'?(k*2+((G.time*7)|0))%menOf(u):k),tx=t.x+rnd(-3,3),ty=t.y+rnd(-3,3),D=Math.sqrt(dist2(mx,my,tx,ty));
     G.proj.push({kind,sx:mx,sy:my,tx,ty,t:-k*(u.type==='aa'?.06:.09),dur:D/speed,dmg:k===0?dmg:0,ap:d.ap,team:u.team,src:u,tgt:t,air:!!t.air});
-    G.fx.push({k:'mz',x:mx,y:my,a:isPlane?u.ang:u.type==='tank'||u.type==='aa'?u.tAng:a,s:kind==='ap'?1.6:.6,life:.07,max:.07,delay:k*(u.type==='aa'?.06:.09)});}
+    mzFx(mx,my,isPlane?u.ang:u.type==='tank'||u.type==='aa'?u.tAng:a,kind==='ap'?1.6:.6,k*(u.type==='aa'?.06:.09));}
+  shotEv(u,kind,n,t.x,t.y,0,u.type==='aa'?.06:.09);
   if(kind==='ap'){smoke(...muzzlePos(u),3);shakeAt(u.x,u.y,.6);sfx('cannon',u.x,u.y);}else sfx(kind==='flak'?'flak':'shot',u.x,u.y);
 }
 function fireAtWall(u,wi){
   const d=UT[u.type],w=d.g;if(!w)return;const x=(wi%G.W+.5)*CELL,y=((wi/G.W|0)+.5)*CELL;
   u.cd=w.cd*rnd(.9,1.1);u.fireT=G.time;if(u.type!=='tank'&&u.type!=='aa')u.ang=Math.atan2(y-u.y,x-u.x);
-  if(w.shell){G.proj.push({kind:'shell',sx:u.x,sy:u.y,tx:x+rnd(-4,4),ty:y+rnd(-4,4),t:0,dur:Math.sqrt(dist2(u.x,u.y,x,y))/170+.5,dmg:w.dmg,splash:w.splash,ap:d.ap,team:u.team,src:u});return;}
+  if(w.shell){const p={kind:'shell',sx:u.x,sy:u.y,tx:x+rnd(-4,4),ty:y+rnd(-4,4),t:0,dur:Math.sqrt(dist2(u.x,u.y,x,y))/170+.5,dmg:w.dmg,splash:w.splash,ap:d.ap,team:u.team,src:u};G.proj.push(p);shotEv(u,'shell',1,p.tx,p.ty,p.dur,0);return;}
   const [mx,my]=muzzlePos(u,0),kind=u.type==='tank'?'ap':'bullet';
   G.proj.push({kind,sx:mx,sy:my,tx:x+rnd(-3,3),ty:y+rnd(-3,3),t:0,dur:Math.sqrt(dist2(mx,my,x,y))/800,dmg:0,wi,wdmg:w.dmg*(u.type==='tank'?1.6:u.type==='inf'?.5:1)*(1+.15*u.rank),team:u.team});
-  G.fx.push({k:'mz',x:mx,y:my,a:u.type==='tank'?u.tAng:u.ang,s:kind==='ap'?1.6:.6,life:.07,max:.07});sfx(kind==='ap'?'cannon':'shot',u.x,u.y);
+  mzFx(mx,my,u.type==='tank'?u.tAng:u.ang,kind==='ap'?1.6:.6,0);shotEv(u,kind,1,x,y,0,0);sfx(kind==='ap'?'cannon':'shot',u.x,u.y);
 }
+function updateProj(dt){let any=false;for(const p of G.proj){p.t+=dt;if(p.t>=p.dur){p.done=true;any=true;if(!p.vis)projHit(p);}}if(any)G.proj=G.proj.filter(p=>!p.done);}
 function projHit(p){
   if(p.kind==='shell'||p.kind==='bomb'){splash(p);return;}
   if(p.wi!=null){if(G.wall[p.wi]&&G.wall[p.wi]!==p.team)damageWall(p.wi,p.wdmg);puff(p.tx,p.ty,'rgba(200,200,190,.9)',p.kind==='ap'?6:2);return;}
   const t=p.tgt;
   if(p.dmg&&t&&!t.dead)damage(t,p.dmg,p.ap,p.src&&!p.src.dead?p.src:null);
-  if(p.kind==='ap'){G.fx.push({k:'ex',x:p.tx,y:p.ty,r:5,life:.25,max:.25});sparks(p.tx,p.ty,6);}
-  else if(p.kind==='flak'){G.fx.push({k:'flak',x:p.tx+rnd(-8,8),y:p.ty+rnd(-8,8),life:.45,max:.45});}
+  if(p.kind==='ap'){exFx(p.tx,p.ty,5);sparks(p.tx,p.ty,6);}
+  else if(p.kind==='flak'){flakFx(p.tx+rnd(-8,8),p.ty+rnd(-8,8));}
   else if(!p.air){puff(p.tx,p.ty,t&&UT[t.type].arm?'rgba(255,220,150,.9)':'rgba(140,120,90,.7)',2);}
 }
 function splash(p){
@@ -928,7 +952,7 @@ function updateGround(u,dt){
   const ox=u.x,oy=u.y;
   moveGround(u,dt,gx,gy,mul*(t?.6:1));
   if(veh&&gx!==undefined&&u.fuel>0){u.fuel=Math.max(0,u.fuel-Math.hypot(u.x-ox,u.y-oy)/d.speed);
-    if(u.fuel<=0&&u.team===1&&!u.warned&&!G.demo){u.warned=true;toast(`${d.name} out of petrol!`,'bad','oil');voice(1,'nofuel',{city:(nearestCity(u.x,u.y,1)||{name:'the front'}).name});}}
+    if(u.fuel<=0&&!u.warned){u.warned=true;note(u.team,`${d.name} out of petrol!`,'bad','oil');voice(u.team,'nofuel',{city:(nearestCity(u.x,u.y,u.team)||{name:'the front'}).name});}}
   if(u.fuel>d.fuel*.3)u.warned=false;
 }
 function planeTarget(u){
@@ -964,8 +988,8 @@ function updatePlane(u,dt){
       return;}
   }
   u.fuel-=dt;
-  if(u.fuel<=0){if(u.team===1&&!G.demo)toast(d.name+' ran out of fuel and crashed','bad','oil');kill(u,null);return;}
-  u.trT-=dt;if(u.trT<=0){u.trT=.05;u.trail.push(u.x,u.y);if(u.trail.length>24)u.trail.splice(0,2);if(u.hp<u.maxHp*.5&&G.parts.length<600)G.parts.push({x:u.x,y:u.y,vx:0,vy:0,life:.9,max:.9,sz:2,c:'smoke'});}
+  if(u.fuel<=0){note(u.team,d.name+' ran out of fuel and crashed','bad','oil');kill(u,null);return;}
+  u.trT-=dt;if(u.trT<=0){u.trT=.05;u.trail.push(u.x,u.y);if(u.trail.length>24)u.trail.splice(0,2);}
   if(u.pstate!=='rtb'){const b=nearestBase(u.x,u.y,u.team);
     if(b&&(u.fuel<Math.sqrt(dist2(b.x,b.y,u.x,u.y))/d.speed+5||u.hp<u.maxHp*.3)){u.pstate='rtb';u.base=b;}}
   u.scan-=dt;if(u.scan<=0){u.scan=.25;u.target=u.pstate==='rtb'?null:planeTarget(u);
@@ -988,7 +1012,7 @@ function updatePlane(u,dt){
   u.x=nx;u.y=ny;
   if(u.cd<=0){
     if(t){const w=weaponFor(u,t);if(w&&dist2(u.x,u.y,t.x,t.y)<w.range*w.range&&(w.bomb||Math.abs(wrapA(Math.atan2(t.y-u.y,t.x-u.x)-u.ang))<.55))fire(u,t,true);}
-    else if(u.bT&&dist2(u.x,u.y,u.bT.x,u.bT.y)<22*22){const w=d.g;u.cd=w.cd;G.proj.push({kind:'bomb',sx:u.x,sy:u.y,tx:u.bT.x+rnd(-4,4),ty:u.bT.y+rnd(-4,4),t:0,dur:.75,dmg:w.dmg,splash:w.splash,ap:d.ap,team:u.team,src:u,ang:u.ang});sfx('whistle',u.x,u.y);}
+    else if(u.bT&&dist2(u.x,u.y,u.bT.x,u.bT.y)<22*22){const w=d.g;u.cd=w.cd;const p={kind:'bomb',sx:u.x,sy:u.y,tx:u.bT.x+rnd(-4,4),ty:u.bT.y+rnd(-4,4),t:0,dur:.75,dmg:w.dmg,splash:w.splash,ap:d.ap,team:u.team,src:u,ang:u.ang};G.proj.push(p);sfx('whistle',u.x,u.y);shotEv(u,'bomb',1,p.tx,p.ty,p.dur,0);}
   }
 }
 function updateUnit(u,dt){u.cd-=dt;if(u.flash>0)u.flash-=dt;if(UT[u.type].air)updatePlane(u,dt);else updateGround(u,dt);}
@@ -1019,22 +1043,18 @@ function visTick(){
 
 // ================= CITY-BY-CITY CONQUEST =================
 function refreshOwn(){
-  const N=G.W*G.H,own=G.own,P=G.prov,C=G.cities,D=G.ovImg.data;let lp=0,le=0;
-  for(let i=0;i<N;i++){const o=C[P[i]].owner;own[i]=o;if(G.terr[i]!==WATER){if(o===1)lp++;else if(o===2)le++;}
-    const j=i*4;if(!o){D[j+3]=0;continue;}const c=TC[o].rgb;D[j]=c[0];D[j+1]=c[1];D[j+2]=c[2];D[j+3]=G.terr[i]===WATER?14:40;}
+  const N=G.W*G.H,own=G.own,P=G.prov,C=G.cities,D=G.ovImg&&G.ovImg.data;let lp=0,le=0;
+  for(let i=0;i<N;i++){const o=C[P[i]].owner;own[i]=o;if(G.terr[i]!==WATER){if(o===1)lp++;else if(o===2)le++;}}
+  G.terrPct[1]=lp/G.landCount;G.terrPct[2]=le/G.landCount;for(const t of [1,2])G.stats[t].peak=Math.max(G.stats[t].peak,G.terrPct[t]);
+  G.placeDirty=true;if(!G.ovImg)return;
+  for(let i=0;i<N;i++){const o=own[i],j=i*4;if(!o){D[j+3]=0;continue;}const c=TC[o].rgb;D[j]=c[0];D[j+1]=c[1];D[j+2]=c[2];D[j+3]=G.terr[i]===WATER?14:40;}
   G.ovCtx.putImageData(G.ovImg,0,0);
-  G.terrPct[1]=lp/G.landCount;G.terrPct[2]=le/G.landCount;G.stats.peak=Math.max(G.stats.peak,G.terrPct[1]);
   const W=G.W,H=G.H,f=new Float32Array(N),g=new Float32Array(N);
   const field=t=>{for(let i=0;i<N;i++)f[i]=own[i]===t?1:0;
     for(let pass=0;pass<2;pass++){for(let y=0;y<H;y++)for(let x=0;x<W;x++){let s=0,n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const X=x+dx,Y=y+dy;if(X<0||Y<0||X>=W||Y>=H)continue;s+=f[Y*W+X];n++;}g[y*W+x]=s/n;}f.set(g);}
     return contour(i=>f[i]-.5);};
-  G.pathP=field(1);G.pathE=field(2);G.placeDirty=true;
+  G.pathP=field(1);G.pathE=field(2);
 }
-function provBorders(){const W=G.W,H=G.H,P=G.prov,p=new Path2D();
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;
-    if(x<W-1&&P[i+1]!==P[i]){p.moveTo((x+1)*CELL,y*CELL);p.lineTo((x+1)*CELL,(y+1)*CELL);}
-    if(y<H-1&&P[i+W]!==P[i]){p.moveTo(x*CELL,(y+1)*CELL);p.lineTo((x+1)*CELL,(y+1)*CELL);}}
-  return p;}
 function terrTick(dt){
   let changed=false;
   for(const c of G.cities){
@@ -1076,9 +1096,8 @@ function cityCaptured(c,o){
   else c.occ=20;
   G.E[o].sh.win=Math.min(20,G.E[o].sh.win+(prev?6:3));
   for(const u of G.units)if(u.state==='retreat'&&u.rc===c)u.rc=null;
-  if(o===1){G.stats.caps++;toast((prev?'Captured ':'Annexed ')+c.name,'good','t_army');sfx('capture');if(prev)voice(1,'win',{city:c.name});}
-  else if(prev===1){toast('Lost '+c.name+'!','bad','warn');sfx('alert');vib(60);voice(1,'lost',{city:c.name});}
-  if(o===1&&prev===2&&Math.random()<.6)voice(1,'occupied',{city:c.name},true);
+  G.stats[o].caps++;note(o,(prev?'Captured ':'Annexed ')+c.name,'good','t_army','capture');if(prev)voice(o,'win',{city:c.name});
+  if(prev){note(prev,'Lost '+c.name+'!','bad','warn','alert');voice(prev,'lost',{city:c.name});if(Math.random()<.6)voice(o,'occupied',{city:c.name},true);}
 }
 function production(dt){
   for(const c of G.cities){if(!c.owner||!c.queue.length)continue;
@@ -1087,7 +1106,24 @@ function production(dt){
       const u=spawnUnit(t,c.owner,c.x+rnd(-12,12),c.y+rnd(-12,12),UT[t].air&&isBase(c)?c:null);
       if(UT[t].air&&!isBase(c))u.pstate='rtb';
       if(!UT[t].air){const a=Math.atan2(G.H*CELL/2-c.y,G.W*CELL/2-c.x)+rnd(-1.2,1.2),[sx,sy]=snapPassable(UT[t].cls,c.x+Math.cos(a)*30,c.y+Math.sin(a)*30,c.owner);setMove(u,sx,sy,true);u.ordX=null;}
-      if(c.owner===1){G.stats.built++;sfx('blip');}}}
+      G.stats[c.owner].built++;note(c.owner,'','','','blip');}}
+}
+
+// ================= SIMULATION STEP =================
+// Pure game rules: runs in the browser (single player) or on the match server (online).
+function update(dt){
+  G.time+=dt;prepTick();
+  rebuildHash();processPaths();
+  if((G.visT-=dt)<=0){G.visT=.2;visTick();}
+  for(const u of G.units)if(!u.dead)updateUnit(u,dt);
+  production(dt);updateProj(dt);
+  if((G.terrT-=dt)<=0){G.terrT=.25;terrTick(.25);}
+  if((G.econT-=dt)<=0){G.econT=.5;econTick(.5);}
+  if(G.over)return;
+  if(!G.mp){aiTick(2,dt);if(G.demo)aiTick(1,dt);}
+  if(G.units.some(u=>u.dead)){G.units=G.units.filter(u=>!u.dead);
+    const n=G.sel.length;G.sel=G.sel.filter(u=>!u.dead);if(G.sel.length!==n)G.selDirty=true;
+    for(const d of G.divs.slice()){const m=d.units.length;d.units=d.units.filter(u=>!u.dead);if(d.units.length!==m)G.divDirty=true;if(!d.units.length&&!(d.team!==1&&d.retreating))disband(d);}}
 }
 
 // ================= NATIONS =================
@@ -1176,8 +1212,8 @@ function econTeam(t,dt){
   E.phT-=dt;if(E.phT<=0){E.phT=2;for(const r of RES){const h=E.ph[r];h.push(mPrice(E,r));if(h.length>40)h.shift();}}
   if(E.hap<10&&!G.peace)E.collapseT+=dt;else E.collapseT=Math.max(0,E.collapseT-dt*2);
   if(E.collapseT>45&&!G.over)gameOver(t===1?'lose':'win','collapse');
-  if(t===1){G.stats.peakPop=Math.max(G.stats.peakPop,pop);
-    if(E.collapseT>15&&!(G.alertT.col>G.time)&&!G.demo){G.alertT.col=G.time+15;toast('The government is about to collapse! Raise happiness now','bad','warn');}}
+  G.stats[t].peakPop=Math.max(G.stats[t].peakPop,pop);
+  if(E.collapseT>15&&!(G.alertT['col'+t]>G.time)){G.alertT['col'+t]=G.time+15;note(t,'The government is about to collapse! Raise happiness now','bad','warn');}
   E.noOil=false;
 }
 function happiness(E,t,dt){
@@ -1207,11 +1243,10 @@ function updateState(E,t,dt){
   if(H<18)s='riot';else if(H<33)s=s==='riot'&&H<22?'riot':'protest';else if(H>72)s='patriotic';
   else if((s==='protest'&&H>37)||(s==='patriotic'&&H<68)||(s==='riot'))s='stable';
   if(s!==E.state){const prev=E.state;E.state=s;
-    if(t===1&&!G.demo){
-      if(s==='protest'){toast('Protests break out across the country','bad','pop');voice(1,'protest',{},true);}
-      else if(s==='riot'){toast('RIOTS! Production and recruitment collapse','bad','warn');voice(1,'riot',{},true);sfx('alert');}
-      else if(s==='patriotic'){toast('Patriotic fervour! Output and volunteers up','good','pop');voice(1,'content',{},true);}
-      else if(prev==='protest'||prev==='riot')toast('Calm returns to the streets','good','pop');}}
+    if(s==='protest'){note(t,'Protests break out across the country','bad','pop');voice(t,'protest',{},true);}
+    else if(s==='riot'){note(t,'RIOTS! Production and recruitment collapse','bad','warn','alert');voice(t,'riot',{},true);}
+    else if(s==='patriotic'){note(t,'Patriotic fervour! Output and volunteers up','good','pop');voice(t,'content',{},true);}
+    else if(prev==='protest'||prev==='riot')note(t,'Calm returns to the streets','good','pop');}
   if(s==='riot'&&dt>0&&Math.random()<.12*dt*2){const own=G.blds.filter(b=>b.owner===t&&b.type!=='house');if(own.length){const b=pick(own);damageBld(b,25,null);puff(b.x,b.y,'rgba(255,140,40,.9)',6);}}
 }
 function refugees(t,amt,from){
@@ -1219,7 +1254,7 @@ function refugees(t,amt,from){
   const dest=G.cities.filter(c=>c.owner===t&&c!==from&&c.panic<.3).sort((a,b)=>(b.cap-b.pop)-(a.cap-a.pop));
   for(const c of dest){if(left<=0)break;const room=Math.max(0,c.cap-c.pop),m=Math.min(room,left);c.pop+=m;left-=m;}
   E.fled+=left;
-  if(t===1&&amt>50&&Math.random()<.25)voice(1,'refugee',{city:from.name});
+  if(amt>50&&Math.random()<.25)voice(t,'refugee',{city:from.name});
 }
 
 // ================= INTERNAL MARKET =================
@@ -1229,15 +1264,15 @@ function mQuote(E,r,q,buy){return q*mP(r,buy?E.mk[r]-q/2:E.mk[r]+q/2)*(buy?1.06:
 function mBuy(t,r,q){const E=G.E[t];if(E.mk[r]-q<RI[r].mk*.08)return 'The market has run dry';const c=mQuote(E,r,q,true);if(E.money<c)return 'Not enough money';
   E.money-=c;E.mk[r]-=q;E.res[r]+=q;E.tradeOut+=c;return ''}
 function mSell(t,r,q){const E=G.E[t];if(E.res[r]<q)return 'Not enough '+RI[r].n.toLowerCase();const c=mQuote(E,r,q,false);
-  E.money+=c;E.mk[r]+=q;E.res[r]-=q;E.tradeIn+=c;if(t===1)G.stats.traded+=c;return ''}
+  E.money+=c;E.mk[r]+=q;E.res[r]-=q;E.tradeIn+=c;G.stats[t].traded+=c;return ''}
 let mEvT=35;
 function marketEvents(dt){
   if((mEvT-=dt)>0)return;mEvT=rnd(30,55);
   const r=pick(RES),up=Math.random()<.55,t=Math.random()<.5?1:2,E=G.E[t];
   E.mk[r]*=up?.55:1.6;
-  if(t===1&&!G.demo){const n=RI[r].n.toLowerCase();
+  {const n=RI[r].n.toLowerCase();
     const msg=up?pick([`Shortage! ${RI[r].n} prices soar`,`Hoarders drive up ${n} prices`,`Strike cuts ${n} supply. Prices up`]):pick([`Glut of ${n}. Prices crash`,`Merchants dump ${n}. Cheap for now`]);
-    toast(msg,up?'bad':'good',r);}
+    note(t,msg,up?'bad':'good',r);}
 }
 
 // ================= FOREIGN TRADE & DIPLOMACY =================
@@ -1251,9 +1286,9 @@ function cTrade(t,c,r,q,buy){
   if(buy){if(c.st[r]<q)return `${c.name} has no ${n} to spare`;const v=cBuyP(c,r,t)*q;if(E.money<v)return 'Not enough money';
     E.money-=v;c.st[r]-=q;E.res[r]+=q;relGain(c,t,v);E.tradeOut+=v;}
   else{if(E.res[r]<q)return 'Not enough '+n;if(c.dm[r]<q)return `${c.name} doesn't want more ${n}`;const v=cSellP(c,r,t)*q;
-    E.money+=v;E.res[r]-=q;c.dm[r]-=q;relGain(c,t,v);E.tradeIn+=v;if(t===1)G.stats.traded+=v;}
+    E.money+=v;E.res[r]-=q;c.dm[r]-=q;relGain(c,t,v);E.tradeIn+=v;G.stats[t].traded+=v;}
   E.sh.trade=Math.min(5,E.sh.trade+.5);
-  if(t===1&&Math.random()<.2)voice(1,'trade',{country:c.name});
+  if(Math.random()<.2)voice(t,'trade',{country:c.name});
   return '';
 }
 const hireP=(c,t)=>PERSONA[c.persona].mpP*(1.25-c.rel[t]/200)*(c.tr[t].vol?.6:1);
@@ -1261,7 +1296,7 @@ function hire(t,c,n){const E=G.E[t];
   if(embargo(c,t))return `${c.name} is embargoing you`;
   if(c.mpA<n)return `${c.name} has only ${fmt(c.mpA)} volunteers left`;
   const v=hireP(c,t)*n/100;if(E.money<v)return 'Not enough money';
-  E.money-=v;E.mp+=n;c.mpA-=n;relGain(c,t,v*.5);if(t===1)voice(1,'hired',{country:c.name});return ''}
+  E.money-=v;E.mp+=n;c.mpA-=n;relGain(c,t,v*.5);voice(t,'hired',{country:c.name});return ''}
 function gift(t,c,kind){const E=G.E[t],k=Math.max(.15,1-c.rel[t]/130);
   if(kind==='gold'){if(E.res.gold<5)return 'Not enough gold';E.res.gold-=5;c.rel[t]=Math.min(100,c.rel[t]+7*k);}
   else{if(E.money<250)return 'Not enough money';E.money-=250;c.rel[t]=Math.min(100,c.rel[t]+4.5*k);}
@@ -1271,8 +1306,8 @@ function canSign(c,k,t){if(c.tr[t][k])return 'Signed';if(k==='ally'&&c.tr[3-t].a
   if(c.rel[t]<treatyReq(c,k))return `Needs relations ${treatyReq(c,k)}`;const m=missing(G.E[t],TREATY[k].cost);return m?'Not enough '+m:''}
 function sign(c,k,t){const r=canSign(c,k,t);if(r)return r;pay(G.E[t],TREATY[k].cost);c.tr[t][k]=true;
   if(k==='ally'){c.rel[3-t]-=25;G.E[t].sh.ally=Math.min(10,G.E[t].sh.ally+6);}
-  if(!G.demo){if(t===1){toast(`${TREATY[k].n} signed with ${c.name}`,'good','handshake');sfx('capture');if(k==='ally')voice(1,'ally',{country:c.name},true);}
-    else toast(`${c.name} signs a ${TREATY[k].n} with ${G.nat[2].name}`,'bad','handshake');}
+  note(t,`${TREATY[k].n} signed with ${c.name}`,'good','handshake','capture');if(k==='ally')voice(t,'ally',{country:c.name},true);
+  note(3-t,`${c.name} signs a ${TREATY[k].n} with ${G.nat[t].name}`,'bad','handshake');
   G.selDirty=true;return ''}
 function countriesTick(dt){
   if(dt<=0)return;
@@ -1285,43 +1320,43 @@ function countriesTick(dt){
       if(c.persona==='pacifist'&&G.E[t].pol.draft===2)c.rel[t]-=.03*dt;
       if(c.tr[3-t].ally)c.rel[t]-=.02*dt;
       c.rel[t]=clamp(c.rel[t],-100,100);
-      for(const k of TKEYS)if(tr[k]&&c.rel[t]<treatyReq(c,k)-25){tr[k]=false;if(!G.demo&&t===1)toast(`${c.name} cancels the ${TREATY[k].n}!`,'bad','handshake');}
+      for(const k of TKEYS)if(tr[k]&&c.rel[t]<treatyReq(c,k)-25){tr[k]=false;note(t,`${c.name} cancels the ${TREATY[k].n}!`,'bad','handshake');}
       const tm=c.tm[t],E=G.E[t];
       if(tr.aid&&(tm.aid-=dt)<=0){tm.aid=20;const got=[];for(const r of c.exp.slice(0,2)){const q=r==='gold'?4:25;E.res[r]+=q;got.push(`+${q} ${RI[r].n.toLowerCase()}`);}
-        if(t===1&&!G.demo)toast(`Lend-Lease from ${c.name}: ${got.join(', ')}`,'good',c.exp[0]);}
-      if(tr.vol&&(tm.vol-=dt)<=0){tm.vol=YEAR;E.mp+=300;if(t===1&&!G.demo)toast(`300 volunteers arrive from ${c.name}`,'good','mp');}
+        note(t,`Lend-Lease from ${c.name}: ${got.join(', ')}`,'good',c.exp[0]);}
+      if(tr.vol&&(tm.vol-=dt)<=0){tm.vol=YEAR;E.mp+=300;note(t,`300 volunteers arrive from ${c.name}`,'good','mp');}
       if(tr.ally&&!G.peace&&(tm.ally-=dt)<=0){tm.ally=40;allyForce(c,t);}}}
 }
 function allyForce(c,t){const cap=capitalOf(t);if(!cap||G.units.filter(u=>u.team===t).length>=UNIT_CAP+10)return;
   const list=['inf','inf','tank'];if(c.persona==='militarist')list.push('art','inf');
   const us=list.map(k=>spawnUnit(k,t,cap.x+rnd(-20,20),cap.y+rnd(-20,20),null,c.id));
-  if(t===1&&!G.demo){toast(`${c.name} sends ${us.length} units to help!`,'good','handshake');voice(1,'ally',{country:c.name,city:cap.name});}
-  else if(t===2&&!G.demo)toast(`${c.name} troops join the enemy`,'bad','handshake');
+  note(t,`${c.name} sends ${us.length} units to help!`,'good','handshake');voice(t,'ally',{country:c.name,city:cap.name});
+  note(3-t,`${c.name} troops join the enemy`,'bad','handshake');
 }
 
 // ================= CITIZEN VOICES =================
 const VCOOL={attack:10,bombed:12,refugee:20,trade:30,win:4,lost:4,hired:20,nofuel:30,noguns:40,occupied:25};
 const LOUD=new Set(['attack','bombed','lost','win','war','ally','riot','protest']);
 function voice(t,cat,ctx={},force){
-  if(t!==1||!G||G.demo)return;const now=G.time;
-  if(!force&&G.lastVoice[cat]>now)return;G.lastVoice[cat]=now+(VCOOL[cat]||14);
+  if(!t||!G||G.demo)return;if(!G.mp&&t!==1)return;const now=G.time,key=t+cat;
+  if(!force&&G.lastVoice[key]>now)return;G.lastVoice[key]=now+(VCOOL[cat]||14);
   const q=pick(QUOTES[cat]||[]);if(!q)return;
-  const mine=G.cities.filter(c=>c.owner===1),home=(ctx.city&&!['win','lost'].includes(cat))?ctx.city:(pick(mine)||{name:'the capital'}).name;
+  const mine=G.cities.filter(c=>c.owner===t),home=(ctx.city&&!['win','lost'].includes(cat))?ctx.city:(pick(mine)||{name:'the capital'}).name;
   const p={id:G.nextId++,name:pick(FIRST)+' '+pick(LS1)+pick(LS2),age:18+(Math.random()*64|0),job:pick(JOBS),city:home,mood:q[0],
     skin:pick(SKIN),hairC:pick(HAIRC),shirt:pick(SHIRT),hs:Math.random()*5|0,t:now,cat};
-  p.text=q[1].replace('{city}',ctx.city||home).replace('{enemy}',G.nat[2].name).replace('{country}',ctx.country||'abroad').replace('{bld}',ctx.bld||'factory');
-  G.voices.unshift(p);if(G.voices.length>40)G.voices.pop();G.peopleDirty=true;
-  if(LOUD.has(cat))voiceToast(p);
+  p.text=q[1].replace('{city}',ctx.city||home).replace('{enemy}',G.nat[3-t].name).replace('{country}',ctx.country||'abroad').replace('{bld}',ctx.bld||'factory');
+  if(G.emit){G.emit(t,['v',p,LOUD.has(cat)?1:0]);return;}
+  addVoice(p,LOUD.has(cat));
 }
-let pvT=8;
-function periodicVoices(dt){
-  if((pvT-=dt)>0)return;pvT=rnd(12,18);const E=G.E[1];
+function addVoice(p,loud){G.voices.unshift(p);if(G.voices.length>40)G.voices.pop();G.peopleDirty=true;if(loud)voiceToast(p);}
+function periodicVoices(dt){for(const t of (G.mp?[1,2]:[1])){if((G.pvT[t]-=dt)<=0){G.pvT[t]=rnd(12,18);nationVoice(t);}}}
+function nationVoice(t){const E=G.E[t];
   let cat=null;
   if(E.starving)cat='hunger';else if(E.state==='riot')cat='riot';else if(E.state==='protest')cat='protest';
   else if(E.pop>E.cap*.97)cat='housing';else if(E.unemp>.4)cat='jobs';else if(E.weary>8)cat='weary';
   else if(E.pol.tax===2&&Math.random()<.6)cat='tax';else if(E.pol.draft===2&&Math.random()<.6)cat='draft';
   else if(G.peace)cat=Math.random()<.6?'prep':'content';else cat=E.hap>60?'content':pick(['weary','draft','content']);
-  voice(1,cat);
+  voice(t,cat);
 }
 
 // ================= CIVILIANS ON THE MAP =================
@@ -1346,7 +1381,7 @@ function declareWar(){
   G.peace=false;G.peaceEnd=G.time;
   for(const t of [1,2])G.E[t].sh.war=-8;
   for(const u of G.units)if(u.state==='move'&&!UT[u.type].air)requestPath(u,u.goalX,u.goalY);
-  if(G.demo)return;
+  if(G.demo||G.mp||typeof document==='undefined')return;
   const b=$('#warBan');b.innerHTML=`<h1>WAR</h1><p>${G.nat[2].name.toUpperCase()} MARCHES</p>`;b.classList.remove('hide');setTimeout(()=>b.classList.add('hide'),3300);
   sfx('siren');vib([120,60,120]);toast(`War with ${G.nat[2].name} has begun!`,'bad','warn');voice(1,'war',{},true);
 }
@@ -1544,18 +1579,73 @@ function aiWalls(T){
     if(placed===0&&!act(T))return;pay(E,BT.wall.cost);addBld('wall',T,i,false);placed++;}
 }
 
+// ================= PLAYER COMMANDS =================
+// Every action a player can take goes through runCmd(team, name, args).
+// Single player runs it directly; online, the match server runs it for the sender's team.
+// Inputs are validated so a modified client cannot cheat.
+const QTY=[10,50,200];
+const NUM=v=>typeof v==='number'&&isFinite(v);
+function myUnits(T,ids){if(!Array.isArray(ids))return [];const s=new Set(ids.slice(0,UNIT_CAP+20));return G.units.filter(u=>!u.dead&&u.team===T&&s.has(u.id));}
+function splitHalves(l){const xs=l.map(u=>u.x),ys=l.map(u=>u.y),hz=Math.max(...xs)-Math.min(...xs)>Math.max(...ys)-Math.min(...ys);
+  l=l.slice().sort((p,q)=>hz?p.x-q.x:p.y-q.y);const h=Math.ceil(l.length/2);return [l.slice(0,h),l.slice(h)];}
+const CMD={
+  move(T,a){const us=myUnits(T,a.ids);if(!us.length||!NUM(a.x)||!NUM(a.y))return;let x=clamp(a.x,0,G.W*CELL),y=clamp(a.y,0,G.H*CELL);
+    if(a.tid){const e=G.units.find(u=>u.id===a.tid&&u.team!==T&&!u.dead);if(e){x=e.x;y=e.y;}}orderMove(us,x,y,us.length===1);},
+  stop(T,a){for(const u of myUnits(T,a.ids)){if(UT[u.type].air)orderPlane(u,null);else{u.ordX=null;if(u.state==='retreat')u.rc=null;arrive(u);}}},
+  retreat(T,a){for(const u of myUnits(T,a.ids))if(!UT[u.type].air)startRetreat(u,true,'hp');},
+  refuel(T,a){for(const u of myUnits(T,a.ids))if(UT[u.type].cls==='veh')startRetreat(u,true,'fuel');},
+  autoret(T,a){for(const u of myUnits(T,a.ids))u.retreatOn=!!a.v;},
+  form(T,a){const us=myUnits(T,a.ids);if(!us.length)return;if(G.divs.filter(d=>d.team===T).length>=12)return 'Max 12 divisions';const d=makeDiv(T,us);note(T,d.name+' formed','good');},
+  split(T,a){const l=myUnits(T,a.ids);if(l.length<2)return;if(G.divs.filter(d=>d.team===T).length>10)return 'Too many divisions';const [A,B]=splitHalves(l);makeDiv(T,A);makeDiv(T,B);},
+  disband(T,a){const d=G.divs.find(d=>d.id===a.div&&d.team===T);if(d)disband(d);},
+  queue(T,a){const c=G.cities[a.city];if(!c||c.owner!==T||!UT[a.type])return 'Not your city';return enqueueUnit(c,a.type);},
+  cancel(T,a){const c=G.cities[a.city];if(!c||c.owner!==T)return;const i=a.i|0;if(i<0||i>=c.queue.length)return;refund(G.E[T],UT[c.queue[i]].cost);c.queue.splice(i,1);if(i===0)c.prog=0;},
+  place(T,a){const B=BT[a.type];if(!B||!Array.isArray(a.cells))return;let err='',n=0;
+    for(const i of a.cells.slice(0,64)){if(!Number.isInteger(i)||i<0||i>=G.W*G.H)continue;const m=missing(G.E[T],B.cost),e=placeErr(T,a.type,i)||(m?'Not enough '+m:'');
+      if(e){err=err||e;continue;}pay(G.E[T],B.cost);addBld(a.type,T,i,false);n++;G.stats[T].blds++;}
+    return n?'':err;},
+  demolish(T,a){const b=G.blds.find(b=>b.id===a.id);if(!b||b.owner!==T)return;refund(G.E[T],BT[b.type].cost,.25);removeBld(b);},
+  mbuy(T,a){return RES.includes(a.r)&&QTY.includes(a.q)?mBuy(T,a.r,a.q):'';},
+  msell(T,a){return RES.includes(a.r)&&QTY.includes(a.q)?mSell(T,a.r,a.q):'';},
+  cbuy(T,a){const c=G.countries[a.c];return c&&RES.includes(a.r)&&QTY.includes(a.q)?cTrade(T,c,a.r,a.q,true):'';},
+  csell(T,a){const c=G.countries[a.c];return c&&RES.includes(a.r)&&QTY.includes(a.q)?cTrade(T,c,a.r,a.q,false):'';},
+  hire(T,a){const c=G.countries[a.c];return c&&(a.n===100||a.n===500)?hire(T,c,a.n):'';},
+  gift(T,a){const c=G.countries[a.c];return c&&(a.k==='gold'||a.k==='$')?gift(T,c,a.k):'';},
+  sign(T,a){const c=G.countries[a.c];return c&&TREATY[a.k]?sign(c,a.k,T):'';},
+  pol(T,a){if(POL[a.k]&&[0,1,2].includes(a.v))G.E[T].pol[a.k]=a.v;},
+  war(T){if(G.peace&&!G.mp)declareWar();},
+  surrender(T){if(G.mp&&!G.over)gameOver(T===1?'lose':'win','surrender');},
+};
+function runCmd(T,name,a){const f=Object.prototype.hasOwnProperty.call(CMD,name)?CMD[name]:null;if(!f||!G||G.over)return '';
+  try{const r=f(T,a&&typeof a==='object'?a:{});return typeof r==='string'?r:'';}catch(e){return 'Command failed';}}
+
 // ================= EFFECTS =================
 function explode(x,y,s){G.fx.push({k:'ex',x,y,r:9*s,life:.45,max:.45});
   for(let i=0;i<8*s&&G.parts.length<600;i++){const a=Math.random()*TAU,v=rnd(15,60)*s;G.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rnd(.3,.8),max:.8,sz:rnd(1,2.2)*s,c:Math.random()<.5?'#ffcf6b':'#ff7b39'});}
   for(let i=0;i<3*s&&G.parts.length<600;i++)G.parts.push({x:x+rnd(-4,4),y:y+rnd(-4,4),vx:rnd(-6,6),vy:rnd(-14,-4),life:rnd(.8,1.6),max:1.6,sz:rnd(3,6)*s,c:'smoke'});}
 function puff(x,y,c,n){for(let i=0;i<n&&G.parts.length<600;i++){const a=Math.random()*TAU;G.parts.push({x,y,vx:Math.cos(a)*20,vy:Math.sin(a)*20,life:.25,max:.25,sz:1.3,c});}}
 function muzzle(x,y,a,s){G.fx.push({k:'mz',x:x+Math.cos(a)*7,y:y+Math.sin(a)*7,a,s,life:.08,max:.08});}
+// visual hooks called by the simulation (the match server records them as events instead)
+function mzFx(x,y,a,s,delay){G.fx.push({k:'mz',x,y,a,s,life:.07,max:.07,delay});}
+function exFx(x,y,r){G.fx.push({k:'ex',x,y,r,life:.25,max:.25});}
+function flakFx(x,y){G.fx.push({k:'flak',x,y,life:.45,max:.45});}
+function shotEv(){}
+function addWreck(t){G.wrecks.push({x:t.x,y:t.y,ang:t.ang,tAng:t.tAng,type:t.type,team:t.team,t:G.time});}
+function addFalling(t){G.falling.push({x:t.x,y:t.y,ang:t.ang,type:t.type,team:t.team,t:0,spin:(Math.random()<.5?-1:1)*rnd(2,4),sp:UT[t.type].speed*.7});}
+function initVisuals(){const W=G.W,H=G.H;buildTerrain();
+  G.ov=document.createElement('canvas');G.ov.width=W;G.ov.height=H;G.ovCtx=G.ov.getContext('2d');G.ovImg=G.ovCtx.createImageData(W,H);
+  G.provPath=provBorders();refreshOwn();}
+function provBorders(){const W=G.W,H=G.H,P=G.prov,p=new Path2D();
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;
+    if(x<W-1&&P[i+1]!==P[i]){p.moveTo((x+1)*CELL,y*CELL);p.lineTo((x+1)*CELL,(y+1)*CELL);}
+    if(y<H-1&&P[i+W]!==P[i]){p.moveTo(x*CELL,(y+1)*CELL);p.lineTo((x+1)*CELL,(y+1)*CELL);}}
+  return p;}
 function scorch(x,y,r,a){const g=G.tctx,gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,`rgba(8,8,6,${a})`);gr.addColorStop(1,'rgba(8,8,6,0)');g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();}
 function updateFx(dt){
   for(const f of G.fx)f.life-=dt;G.fx=G.fx.filter(f=>f.life>0);
   for(const p of G.parts){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;}G.parts=G.parts.filter(p=>p.life>0);
   for(const m of G.markers)m.life-=dt;G.markers=G.markers.filter(m=>m.life>0);
-  for(const p of G.proj){p.t+=dt;if(p.t>=p.dur){p.done=true;projHit(p);}}G.proj=G.proj.filter(p=>!p.done);
+  if(G.mp)updateProj(dt);
   for(const f of G.fx)if(f.delay>0){f.delay-=dt;f.life+=dt;}
   G.shake*=Math.exp(-dt*9);updateArt(dt);
 }
@@ -1827,6 +1917,7 @@ function planeBody(type,C,bank,shadow,prop){
 }
 function drawPlane(u,s){
   const d=UT[u.type],C=ARMY[u.team],prop=G.time*60+u.id;
+  if(!u.landed&&u.hp<u.maxHp*.5&&Math.random()<.35&&G.parts.length<650)G.parts.push({x:u.x,y:u.y,vx:0,vy:0,life:.9,max:.9,sz:2,c:'smoke'});
   if(u.landed){ctx.save();ctx.translate(u.x,u.y);ctx.scale(s*.62,s*.62);ctx.rotate(-Math.PI/2);planeBody(u.type,C,0,true,0);planeBody(u.type,C,0,false,0);ctx.restore();return;}
   if(u.trail.length>3){ctx.strokeStyle='rgba(255,255,255,.10)';ctx.lineWidth=1.1*s;ctx.beginPath();ctx.moveTo(u.trail[0],u.trail[1]);for(let i=2;i<u.trail.length;i+=2)ctx.lineTo(u.trail[i],u.trail[i+1]);ctx.lineTo(u.x,u.y);ctx.stroke();}
   ctx.save();ctx.translate(u.x+8*s,u.y+12*s);ctx.scale(s*.9,s*.9);ctx.rotate(u.ang);planeBody(u.type,C,u.bank,true,0);ctx.restore();
@@ -1899,22 +1990,177 @@ function drawProj(p,s){
   if(p.kind==='ap'){ctx.globalCompositeOperation='lighter';ctx.fillStyle='rgba(255,200,100,.4)';circ(ctx,x,y,2.4);ctx.fill();ctx.globalCompositeOperation='source-over';}
 }
 
-// ================= LOOP =================
-function update(dt){
-  G.time+=dt;prepTick();
-  rebuildHash();processPaths();
-  if((G.visT-=dt)<=0){G.visT=.2;visTick();}
-  for(const u of G.units)if(!u.dead)updateUnit(u,dt);
-  production(dt);updateFx(dt);civTick(dt);
-  if((G.terrT-=dt)<=0){G.terrT=.25;terrTick(.25);}
-  if((G.econT-=dt)<=0){G.econT=.5;econTick(.5);}
-  if(G.over)return;
-  aiTick(2,dt);if(G.demo)aiTick(1,dt);
-  if(G.units.some(u=>u.dead)){G.units=G.units.filter(u=>!u.dead);
-    const n=G.sel.length;G.sel=G.sel.filter(u=>!u.dead);if(G.sel.length!==n)G.selDirty=true;
-    for(const d of G.divs.slice()){const m=d.units.length;d.units=d.units.filter(u=>!u.dead);if(d.units.length!==m)G.divDirty=true;if(!d.units.length&&!(d.team!==1&&d.retreating))disband(d);}}
-  if(!G.demo){alerts();advisor();}
+// ================= ONLINE MULTIPLAYER (client) =================
+// The match runs on the server. This client only shows the server's state and sends orders.
+// Each player always sees themselves as team 1 (blue, base at the bottom): for player 2 every
+// position, cell and team number is mirrored when it arrives and mirrored back when sent.
+const MP_DEFAULT_SERVER=''; // set to the Cloudflare Worker address after deploying
+const MP={ws:null,lobby:null,state:'off',team:1,flip:false,room:'',key:'',opp:'',me:'',units:new Map(),bmap:new Map(),divSig:'',retry:0,pingT:null,lpT:null,lastMsg:0,ping:0,WPX:0,HPX:0,N:0};
+const mpServer=()=>(localStorage.getItem('rw_server')||MP_DEFAULT_SERVER).trim();
+function wsBase(s){s=(s||mpServer()).trim().replace(/\/+$/,'');if(!s)return '';if(/^https?:\/\//i.test(s))return s.replace(/^http/i,'ws');return /^wss?:\/\//i.test(s)?s:'wss://'+s;}
+const mpStatus=t=>{$('#mpStatus').textContent=t};
+const MX=x=>MP.flip?MP.WPX-x:x,MY=y=>MP.flip?MP.HPX-y:y,MA=a=>MP.flip?wrapA(a+Math.PI):a,MT=t=>MP.flip&&t?3-t:t,MC=i=>MP.flip?MP.N-1-i:i;
+
+// ---------- lobby ----------
+function openMP(){$('#menu').classList.add('hide');$('#endScr').classList.add('hide');$('#mpScr').classList.remove('hide');
+  $('#mpName').value=localStorage.getItem('rw_name')||'';$('#mpSrv').value=mpServer();$('#mpSrvBox').open=!mpServer();
+  mpStatus(mpServer()?'Tap Find match to enter the queue':'Paste the server address below first');}
+function mpFind(){
+  if(MP.state==='queue')return mpCancel();
+  const name=$('#mpName').value.trim()||'Commander';localStorage.setItem('rw_name',name);
+  const srv=$('#mpSrv').value.trim();if(srv)localStorage.setItem('rw_server',srv);
+  const base=wsBase();if(!base)return mpStatus('Paste the server address below first');
+  initAudio();if(AC&&AC.state==='suspended')AC.resume();
+  let ws;try{ws=new WebSocket(base+'/lobby');}catch(e){return mpStatus('That server address is not valid');}
+  MP.lobby=ws;MP.state='queue';$('#bFind').textContent='CANCEL';mpStatus('Connecting…');
+  ws.onopen=()=>ws.send(JSON.stringify({t:'queue',name}));
+  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(x){return;}
+    if(m.t==='status'&&MP.state==='queue')mpStatus(`Searching for an opponent… ${m.online} online · ${m.waiting} in queue`);
+    else if(m.t==='match'){Object.assign(MP,{state:'joining',room:m.room,key:m.key,team:m.team,opp:m.opp,me:m.me});
+      sessionStorage.setItem('rw_match',JSON.stringify({room:m.room,key:m.key,team:m.team,opp:m.opp,me:m.me,srv:base}));
+      ws.onclose=null;ws.close();MP.lobby=null;clearInterval(MP.lpT);mpStatus(`Opponent found: ${m.opp}. Starting…`);sfx('capture');vib([40,40,40]);mpJoin(base);}
+    else if(m.t==='error')mpStatus(m.msg);};
+  ws.onclose=()=>{if(MP.state!=='queue')return;MP.state='off';MP.lobby=null;$('#bFind').textContent='FIND MATCH';mpStatus('Could not reach the server. Check the address and your connection.');};
+  clearInterval(MP.lpT);MP.lpT=setInterval(()=>{if(MP.lobby&&MP.lobby.readyState===1)MP.lobby.send('{"t":"ping"}');},15000);
 }
+function mpCancel(){const ws=MP.lobby;if(ws){ws.onclose=null;try{ws.send('{"t":"cancel"}');ws.close();}catch(e){}}MP.lobby=null;MP.state='off';clearInterval(MP.lpT);$('#bFind').textContent='FIND MATCH';mpStatus('Search cancelled');}
+function mpRejoin(){const s=JSON.parse(sessionStorage.getItem('rw_match')||'null');if(!s)return;Object.assign(MP,{state:'joining',room:s.room,key:s.key,team:s.team,opp:s.opp,me:s.me});openMP();mpStatus('Rejoining your match…');mpJoin(s.srv);}
+
+// ---------- match connection ----------
+function mpJoin(base){
+  base=base||(JSON.parse(sessionStorage.getItem('rw_match')||'{}').srv)||wsBase();
+  const ws=new WebSocket(`${base}/room/${MP.room}?team=${MP.team}&key=${MP.key}`);ws.binaryType='arraybuffer';MP.ws=ws;MP.lastMsg=performance.now();
+  ws.onopen=()=>{MP.retry=0;clearInterval(MP.pingT);MP.pingT=setInterval(()=>{if(ws.readyState===1)ws.send(JSON.stringify({t:'ping',c:Date.now()%1e6}));},4000);};
+  ws.onmessage=e=>{MP.lastMsg=performance.now();if(typeof e.data==='string'){let m;try{m=JSON.parse(e.data);}catch(x){return;}mpCtrl(m);}else if(G&&G.mp&&MP.state==='play')mpSnap(e.data);};
+  ws.onclose=()=>{clearInterval(MP.pingT);if(MP.ws!==ws)return;MP.ws=null;
+    if(['play','joining','wait'].includes(MP.state)){if(++MP.retry>25)return mpEnd('Connection lost.');if(G&&G.mp&&MP.state==='play')toast('Connection lost. Reconnecting…','bad','warn');setTimeout(()=>{if(!MP.ws&&MP.state!=='off'&&MP.state!=='over')mpJoin(base);},2000);}};
+}
+function mpCtrl(m){
+  if(m.t==='wait'){MP.state='wait';mpStatus(`Waiting for ${m.opp} to connect…`);}
+  else if(m.t==='init')mpInit(m);
+  else if(m.t==='opp'){if(G&&G.mp)toast(m.online?`${MP.opp} reconnected`:`${MP.opp} disconnected. You win in ${m.grace}s if they don't return`,m.online?'good':'bad','warn');}
+  else if(m.t==='pong')MP.ping=Math.round(((Date.now()%1e6)-m.c+1e6)%1e6);
+  else if(m.t==='error')mpEnd(m.msg);
+}
+function mpEnd(msg){const playing=G&&G.mp&&!G.over;MP.state='off';sessionStorage.removeItem('rw_match');const w=MP.ws;MP.ws=null;if(w)try{w.close();}catch(e){}
+  if(playing){toast(msg,'bad','warn');setTimeout(toMenu,2500);}else{mpStatus(msg);$('#bFind').textContent='FIND MATCH';}}
+function mpSend(name,a){if(!MP.ws||MP.ws.readyState!==1){toast('Not connected to the match','bad');return;}
+  a=a?{...a}:{};if(MP.flip){if(NUM(a.x))a.x=MP.WPX-a.x;if(NUM(a.y))a.y=MP.HPX-a.y;if(Array.isArray(a.cells))a.cells=a.cells.map(i=>MP.N-1-i);}
+  MP.ws.send(JSON.stringify({t:'cmd',n:name,a}));}
+function mpLeave(){if(G&&G.mp&&!G.over)mpSend('surrender',{});MP.state='off';sessionStorage.removeItem('rw_match');const w=MP.ws;MP.ws=null;if(w)setTimeout(()=>{try{w.close();}catch(e){}},300);}
+
+// ---------- building the local view from the server's map ----------
+function ub64(s){const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+function mpInit(m){
+  const M=m.map,W=M.W,H=M.H,N=W*H,F=m.team===2;
+  Object.assign(MP,{team:m.team,flip:F,N,WPX:W*CELL,HPX:H*CELL,opp:m.names[3-m.team],me:m.names[m.team],units:new Map(),bmap:new Map(),divSig:'',state:'play'});
+  const rev=a=>(F?a.reverse():a);
+  const terr=rev(ub64(M.terr)),elev=Float32Array.from(rev(ub64(M.elev)),v=>v/255),prov=rev(new Int16Array(ub64(M.prov).buffer)),road=rev(ub64(M.road)),depAt=rev(new Int8Array(ub64(M.depAt).buffer));
+  const cities=M.cities.map(([id,name,cx,cy,type])=>{if(F){cx=W-1-cx;cy=H-1-cy;}return {id,name,cx,cy,ci:cy*W+cx,x:(cx+.5)*CELL,y:(cy+.5)*CELL,type,owner:0,queue:[],prog:0,contest:0,threat:0,
+    pop:0,cap:CITY_CAP[type],panic:0,occ:0,seen1:true,cp:0,cpBy:0,cstate:'',civN:0};});
+  const deps=M.deps.map(([type,c])=>{const i=MC(c);return {type,ci:i,cx:i%W,cy:i/W|0,x:(i%W+.5)*CELL,y:((i/W|0)+.5)*CELL};});
+  const countries=M.countries.map(c=>({...c,st:{...c.stMax},dm:{...c.dmMax},tr:{1:{},2:{}},rel:[0,0,0],mpA:0,tm:{1:{},2:{}}}));
+  G={W,H,seed:0,opts:{size:'medium',mp:true},vertical:H>W,terr,elev,cities,deps,depAt,prov,adj:null,roads:M.roads.map(p=>p.map(MC)),road,
+    units:[],proj:[],fx:[],parts:[],markers:[],civs:[],blds:[],bAt:new Map(),wrecks:[],falling:[],shake:0,
+    wall:new Uint8Array(N),wallHp:new Float32Array(N),wallHit:new Float32Array(N),own:new Uint8Array(N),
+    time:0,peaceEnd:0,peace:false,terrPct:[0,0,0],divs:[],sel:[],selCity:null,demo:false,mp:true,
+    diff:DIFFS.normal,speed:1,paused:false,over:false,nextId:1e9,civT:0,pathQ:[],stats:{1:newStats(),2:newStats()},ai:{},alertT:{},
+    divDirty:true,selDirty:true,landCount:0,voices:[],tab:null,place:null,country:null,lastVoice:{},pvT:{1:1e9,2:1e9},
+    E:[null,newEcon(1),newEcon(2)],countries,nat:F?[null,M.nat[2],M.nat[1]]:M.nat};
+  for(let i=0;i<N;i++)if(terr[i]!==WATER)G.landCount++;
+  G.provCells=cities.map(()=>[]);for(let i=0;i<N;i++)G.provCells[prov[i]].push(i);
+  initVisuals();mpStartUI();
+}
+function mpStartUI(){
+  resetUI();G.qty=10;tipI=TIPS.length;
+  for(const id of ['#menu','#mpScr','#pauseScr','#endScr'])$(id).classList.add('hide');
+  $('#ui').style.display='';$('#bSpeed').style.display='none';
+  fitBounds();sizeMini();renderResBar();renderTabs();
+  const cap=G.cities.filter(c=>c.type==='capital').sort((a,b)=>b.y-a.y)[0];
+  CAM.z=clamp(Math.min(VW,VH)/360,CAM.minZ,CAM.maxZ);CAM.x=cap.x;CAM.y=cap.y;clampCam();
+  setTimeout(()=>toast(`Online match vs ${MP.opp}. Same rules for both of you. Invade whenever you are ready!`,'','warn'),400);
+}
+
+// ---------- snapshots ----------
+function mpSnap(buf){const dv=new DataView(buf),ul=dv.getUint32(0,true);mpUnits(new DataView(buf,4,ul));
+  let p;try{p=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4+ul)));}catch(e){return;}mpApply(p);}
+function mpUnit(id,type,team,x,y,a){const d=UT[type];return {id,type,team,x,y,tx:x,ty:y,ang:a,tAng:a,ta:a,tta:a,hp:d.hp,maxHp:d.hp,state:'idle',vis:[false,true,true],div:null,divId:0,sel:false,
+  rank:0,ally:null,fuel:d.fuel||0,mv:0,walk:Math.random()*10,trk:0,fireT:-9,flash:0,lastHit:-99,ph:Math.random()*TAU,trail:[],trT:0,bank:0,landed:false,order:null,goalX:x,goalY:y,retreatOn:true,dead:false};}
+function mpUnits(v){
+  const t=v.getFloat32(0,true),n=v.getUint32(4,true),seen=new Set();let o=8;
+  for(let k=0;k<n;k++,o+=28){
+    const id=v.getUint32(o,true),type=TYPES[v.getUint8(o+4)],team=MT(v.getUint8(o+5)),x=MX(v.getInt16(o+6,true)/10),y=MY(v.getInt16(o+8,true)/10),
+      ang=MA(v.getInt16(o+10,true)/1000),ta=MA(v.getInt16(o+12,true)/1000),hp=v.getUint16(o+14,true),fl=v.getUint8(o+16),div=v.getUint32(o+17,true),
+      fuel=v.getUint8(o+21),rank=v.getUint8(o+22),ally=v.getInt8(o+23),gx=MX(v.getInt16(o+24,true)/10),gy=MY(v.getInt16(o+26,true)/10),d=UT[type];
+    if(!d)continue;seen.add(id);let u=MP.units.get(id);
+    if(!u){u=mpUnit(id,type,team,x,y,ang);MP.units.set(id,u);}
+    else if(hp<u.hp){u.flash=.07;u.lastHit=G.time;
+      if(type==='inf'){const m0=menOf(u),m1=menOf({hp,maxHp:u.maxHp});for(let j=m1;j<m0;j++){const p=soldierPos(u,j);fallen(p[0],p[1],u.team,u.ang);}}}
+    Object.assign(u,{tx:x,ty:y,ta:ang,tta:ta,hp,landed:!!(fl&1),state:fl&2?'retreat':fl&4?'move':'idle',retreatOn:!!(fl&8),rcWhy:fl&16?'fuel':null,
+      fuel:d.fuel?fuel/100*d.fuel:0,rank,ally:ally<0?null:ally,goalX:gx,goalY:gy,divId:div});
+    if(d.air)u.order=fl&4?{x:gx,y:gy}:null;
+  }
+  for(const [id,u] of MP.units)if(!seen.has(id)){MP.units.delete(id);u.dead=true;const d=UT[u.type];
+    if(d.air){if(!u.landed)addFalling(u);}
+    else if(u.type==='inf'){for(let j=0;j<menOf(u);j++){const p=soldierPos(u,j);fallen(p[0],p[1],u.team,u.ang+rnd(-1,1));}}
+    else addWreck(u);}
+  G.units=[...MP.units.values()];
+  const n0=G.sel.length;G.sel=G.sel.filter(u=>!u.dead);if(G.sel.length!==n0)G.selDirty=true;
+  G.time=t;
+}
+function mpApply(p){
+  if(p.ev)for(const e of p.ev)mpEv(e);
+  if(p.me)for(const e of p.me){if(e[0]==='n'){const [,msg,kind,ic,snd]=e;if(msg)toast(msg,kind,ic);if(snd)sfx(snd);if(snd==='alert')vib(60);}else if(e[0]==='v')addVoice(e[1],!!e[2]);}
+  if(p.c){let own=false;for(const r of p.c){const c=G.cities[r[0]];if(!c)continue;const o=MT(r[1]);if(c.owner!==o){c.owner=o;own=true;if(G.selCity===c)G.selDirty=true;}
+      c.pop=r[2];c.cap=r[3];c.panic=r[4];c.occ=r[5];c.cp=r[6];c.cpBy=MT(r[7]);c.cstate=['','cap','fight'][r[8]]||'';c.contest=r[9];c.queue=r[10].map(i=>TYPES[i]);c.prog=r[11];}
+    if(own)refreshOwn();}
+  if(p.e){const E=G.E[1],{res,net,mk,ph,...rest}=p.e;Object.assign(E,rest);Object.assign(E.res,res);Object.assign(E.net,net);Object.assign(E.mk,mk);if(ph)E.ph=ph;}
+  if(p.oe)Object.assign(G.E[2],p.oe);
+  if(p.k)p.k.forEach((k,i)=>{const c=G.countries[i];if(!c)return;const [rel,t1,t2,st,dm,mpA]=k;c.rel=MP.flip?[0,rel[2],rel[1]]:rel;c.tr=MP.flip?{1:t2,2:t1}:{1:t1,2:t2};c.st=st;c.dm=dm;c.mpA=mpA;});
+  if(p.d){const sig=JSON.stringify(p.d);if(sig!==MP.divSig){MP.divSig=sig;G.divs=p.d.map(([id,num,color])=>({id,team:1,num,short:ordinal(num),name:ordinal(num)+' Division',color,units:[]}));G.divDirty=true;}}
+  const dm=new Map(G.divs.map(d=>[d.id,d]));for(const d of G.divs)d.units=[];
+  for(const u of G.units){const d=u.team===1&&u.divId?dm.get(u.divId):null;u.div=d||null;if(d)d.units.push(u);}
+  if(p.b){if(p.b.full)MP.bmap.clear();
+    for(const [id,ti,ow,c0,hp,prog,eff,cid] of p.b.add){const ci=MC(c0),type=BTYPES[ti];let b=MP.bmap.get(id);
+      if(!b){b={id,type,ci,x:(ci%G.W+.5)*CELL,y:((ci/G.W|0)+.5)*CELL,maxHp:BT[type].hp,smokeT:Math.random()};MP.bmap.set(id,b);}
+      Object.assign(b,{owner:MT(ow),hp,prog,eff,city:cid>=0?G.cities[cid]:null});}
+    for(const id of p.b.del)MP.bmap.delete(id);
+    G.blds=[...MP.bmap.values()];G.bAt=new Map(G.blds.map(b=>[b.ci,b]));G.placeDirty=true;}
+  if(p.w){if(p.wf){G.wall.fill(0);G.wallHp.fill(0);}for(let i=0;i<p.w.length;i+=3){const c=MC(p.w[i]);G.wall[c]=MT(p.w[i+1]);G.wallHp[c]=p.w[i+2]/15*BT.wall.hp;}G.placeDirty=true;}
+  if(p.over&&!G.over)mpOver(p.over);
+}
+function mpEv(e){const X=MX(e[1]),Y=MY(e[2]);
+  switch(e[0]){
+    case 'x':return explode(X,Y,e[3]);case 'p':return puff(X,Y,e[3],e[4]);case 's':return scorch(X,Y,e[3],e[4]);case 'd':return debris(X,Y,e[3]);
+    case 'b':return burn(X,Y,e[3]);case 'k':return shakeAt(X,Y,e[3]);case 'm':return smoke(X,Y,e[3]);case 'z':return sparks(X,Y,e[3]);case 'c':return crater(X,Y);
+    case 'e':return exFx(X,Y,e[3]);case 'f':return flakFx(X,Y);case 'S':return sfx(e[1],MX(e[2]),MY(e[3]));case 'F':return mpFire(e);}}
+function mpFire([,id,kind,n,tx0,ty0,durMs,stepMs]){const u=MP.units.get(id);if(!u)return;const tx=MX(tx0),ty=MY(ty0);u.fireT=G.time;
+  if(kind==='shell'){const [mx,my]=muzzlePos(u);G.proj.push({kind,sx:mx,sy:my,tx,ty,t:0,dur:durMs/1000,vis:true});mzFx(mx,my,u.ang,2.2,0);return;}
+  if(kind==='bomb'){G.proj.push({kind,sx:u.x,sy:u.y,tx,ty,t:0,dur:durMs/1000,vis:true,ang:u.ang});return;}
+  const sp=kind==='ap'?900:kind==='flak'?620:720,step=stepMs/1000,air=UT[u.type].air,turret=u.type==='tank'||u.type==='aa';
+  for(let k=0;k<n;k++){const [mx,my]=muzzlePos(u,u.type==='inf'?(k*2)%menOf(u):k),x=tx+rnd(-3,3),y=ty+rnd(-3,3);
+    G.proj.push({kind,sx:mx,sy:my,tx:x,ty:y,t:-k*step,dur:Math.hypot(x-mx,y-my)/sp,vis:true});
+    mzFx(mx,my,air?u.ang:turret?u.tAng:Math.atan2(ty-u.y,tx-u.x),kind==='ap'?1.6:.6,k*step);}}
+function mpOver(o){MP.state='over';sessionStorage.removeItem('rw_match');G.mpStats=o.stats;gameOver(MT(o.winner)===1?'win':'lose',o.why);
+  const w=MP.ws;MP.ws=null;if(w)setTimeout(()=>{try{w.close();}catch(e){}},1500);}
+
+// ---------- per-frame smoothing and effects derived from state ----------
+function mpFrame(dt){
+  if(!G||!G.mp)return;G.time+=dt;const k=1-Math.exp(-dt*9);
+  for(const u of G.units){const ox=u.x,oy=u.y,dx=u.tx-u.x,dy=u.ty-u.y,d=UT[u.type];
+    if(dx*dx+dy*dy>110*110){u.x=u.tx;u.y=u.ty;}else{u.x+=dx*k;u.y+=dy*k;}
+    const da=wrapA(u.ta-u.ang);u.ang+=da*k;u.tAng+=wrapA(u.tta-u.tAng)*k;
+    const md=Math.hypot(u.x-ox,u.y-oy);u.mv=dt>0?md/dt:0;u.walk+=md;if(u.flash>0)u.flash-=dt;
+    if(d.cls==='veh'&&md>0){u.trk+=md;if(u.trk>4.5){u.trk=0;trackMark(u);}}
+    if(d.air&&!u.landed){if((u.trT-=dt)<=0){u.trT=.05;u.trail.push(u.x,u.y);if(u.trail.length>24)u.trail.splice(0,2);}u.bank+=(clamp(da*6,-1,1)-u.bank)*Math.min(1,dt*4);}
+    else if(d.air)u.trail.length=0;}
+  updateFx(dt);civTick(dt);if(!G.over&&MP.state==='play')alerts();
+  if(MP.ws&&MP.state==='play'&&performance.now()-MP.lastMsg>9000){MP.lastMsg=performance.now();try{MP.ws.close();}catch(e){}}
+}
+
+// ================= LOOP =================
+// one entry point for player actions: local in single player, sent to the server online
+function doCmd(name,a){if(G.mp){mpSend(name,a);return '';}const r=runCmd(1,name,a);if(r)toast(r,'bad');return r;}
 function alerts(){
   const A=G.alertT,cap=capitalOf(1),E=G.E[1];
   if(cap&&cap.contest>.3&&!(A.cap>G.time)){A.cap=G.time+25;toast('Capital under attack!','bad','warn');sfx('alert');vib([40,40,40]);voice(1,'attack',{city:cap.name},true);}
@@ -1932,7 +2178,8 @@ function advisor(){if(G.peaceEnd<=0||tipI>=TIPS.length)return;if(G.time>=TIPS[ti
 let lastT=performance.now(),uiT=0,demoEnd=0;
 function frame(now){
   const dt=Math.min(.05,(now-lastT)/1000);lastT=now;
-  if(G&&!G.paused){if(!G.over)for(let i=0;i<G.speed;i++)update(dt);else updateFx(dt);}
+  if(G&&G.mp)mpFrame(dt);
+  else if(G&&!G.paused){if(!G.over)for(let i=0;i<G.speed;i++)update(dt);updateFx(dt);civTick(dt);if(!G.demo&&!G.over){alerts();advisor();}}
   if(G&&G.demo){if(G.over){if(!demoEnd)demoEnd=now+2500;else if(now>demoEnd){demoEnd=0;startDemo();}}
     CAM.z=CAM.minZ*1.08;CAM.x=G.W*CELL/2+Math.sin(now/9000)*40;CAM.y=G.H*CELL/2+Math.cos(now/11000)*30;}
   render();
@@ -1963,7 +2210,7 @@ function onTap(sx,sy,long){
   if(G.sel.length){
     const e=pickUnit(wx,wy,2),tx=e?e.x:wx,ty=e?e.y:wy;
     if(G.peace&&G.own[cellIdx(tx,ty)]===2&&!(G.alertT.bord>G.time)){G.alertT.bord=G.time+4;toast('Borders are closed until war is declared','', 'warn');}
-    orderMove(G.sel,tx,ty,G.sel.length===1);
+    doCmd('move',{ids:G.sel.map(u=>u.id),x:tx,y:ty,tid:e?e.id:0});
     G.markers.push({x:tx,y:ty,life:.6,max:.6,c:e?'255,110,110':'255,255,255'});sfx('blip');return;}
   const b=pickBld(wx,wy);if(b){setSel([]);G.tab=null;G.selBld=b;G.selDirty=true;sfx('blip');return;}
   const c=pickCity(wx,wy);if(c){openCity(c);return;}
@@ -1974,9 +2221,10 @@ function boxSelect(g){const x0=Math.min(g.sx,g.ex),x1=Math.max(g.sx,g.ex),y0=Mat
   setSel(l);boxMode=false;$('#bBox').classList.remove('on');}
 function paintTo(sx,sy){const [wx,wy]=s2w(sx,sy),cx=clamp(Math.floor(wx/CELL),0,G.W-1),cy=clamp(Math.floor(wy/CELL),0,G.H-1);
   let x=gest.lx==null?cx:gest.lx,y=gest.ly==null?cy:gest.ly;const dx=Math.abs(cx-x),dy=-Math.abs(cy-y),sx2=x<cx?1:-1,sy2=y<cy?1:-1;let err=dx+dy;
-  for(let n=0;n<200;n++){if(!(x===gest.lx&&y===gest.ly)){const e=placeOne('wall',y*G.W+x);if(e&&!gest.err)gest.err=e;}
+  const cells=[];
+  for(let n=0;n<200;n++){if(!(x===gest.lx&&y===gest.ly)){const i=y*G.W+x,e=placeErr(1,'wall',i)||(missing(G.E[1],BT.wall.cost)?'Not enough '+missing(G.E[1],BT.wall.cost):'');if(e){if(!gest.err)gest.err=e;}else cells.push(i);}
     if(x===cx&&y===cy)break;const e2=2*err;if(e2>=dy){err+=dy;x+=sx2;}if(e2<=dx){err+=dx;y+=sy2;}}
-  gest.lx=cx;gest.ly=cy;}
+  gest.lx=cx;gest.ly=cy;if(cells.length)placeCells('wall',cells);}
 function finishPaint(){if(gest&&gest.type==='paint'&&gest.err&&!gest.ok)toast(gest.err,'bad');gest=null;}
 cv.addEventListener('pointerdown',e=>{
   if(!G||G.demo)return;cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -2013,12 +2261,12 @@ document.addEventListener('gesturestart',e=>e.preventDefault());
 function startPlace(t){G.place={type:t,n:0};G.placeDirty=true;setSel([]);G.tab=null;G.selDirty=true;
   toast(t==='wall'?'Drag across your land to paint walls':`Tap a highlighted spot to build a ${BT[t].n}`,'',BT[t].ico);}
 function endPlace(){G.place=null;G.placeCells=null;G.tab='build';G.selDirty=true;}
-function placeOne(t,i){const e=placeErr(1,t,i);if(e)return e;const E=G.E[1],m=missing(E,BT[t].cost);if(m)return 'Not enough '+m;
-  pay(E,BT[t].cost);addBld(t,1,i,false);G.place.n++;G.stats.blds++;G.placeDirty=true;if(gest&&gest.type==='paint')gest.ok++;sfx('build');return ''}
+function placeCells(t,cells){const r=doCmd('place',{type:t,cells});if(!r){G.place.n+=cells.length;G.placeDirty=true;if(gest&&gest.type==='paint')gest.ok++;sfx('build');}return r}
+function placeOne(t,i){const e=placeErr(1,t,i);if(e)return e;const m=missing(G.E[1],BT[t].cost);if(m)return 'Not enough '+m;return placeCells(t,[i])}
 function placeAt(wx,wy){const t=G.place.type,W=G.W,cx=Math.floor(wx/CELL),cy=Math.floor(wy/CELL),R=t==='wall'?0:2;let best=-1,bd=1e9;
   for(let y=cy-R;y<=cy+R;y++)for(let x=cx-R;x<=cx+R;x++){if(x<0||y<0||x>=W||y>=G.H)continue;const i=y*W+x;if(placeErr(1,t,i))continue;const d=(x+.5-wx/CELL)**2+(y+.5-wy/CELL)**2;if(d<bd){bd=d;best=i;}}
   if(best<0){toast(placeErr(1,t,clamp(cy,0,G.H-1)*W+clamp(cx,0,W-1)),'bad');return;}
-  const e=placeOne(t,best);if(e)toast(e,'bad');else G.markers.push({x:(best%W+.5)*CELL,y:((best/W|0)+.5)*CELL,life:.5,max:.5,c:'123,227,154'});}
+  const e=placeOne(t,best);if(!e)G.markers.push({x:(best%W+.5)*CELL,y:((best/W|0)+.5)*CELL,life:.5,max:.5,c:'123,227,154'});}
 function renderPlace(){const P=$('#place');if(!G.place){P.classList.add('hide');return;}const t=G.place.type,B=BT[t];P.classList.remove('hide');
   P.innerHTML=`<div class="pi"><b>${svgI(B.ico)}${B.n} <span data-cost="bld:${t}"></span></b><small>${t==='wall'?'Drag to paint walls · pinch to move the map':B.d+' · tap a green spot'} · <span data-v="placed">0</span> built</small></div><button class="btn pri" id="bDone">Done</button>`;
   $('#bDone').onclick=endPlace;liveUpdate(P);}
@@ -2043,7 +2291,8 @@ function uiTick(){
   const p=G.terrPct[1]*100,q=G.terrPct[2]*100;$('#tP').textContent=p.toFixed(0)+'%';$('#tE').textContent=q.toFixed(0)+'%';
   $('#tbP').style.width=p+'%';$('#tbE').style.width=q+'%';$('#tDate').textContent=dateStr(G.time);
   const ph=$('#phase');
-  if(G.peace){ph.className='peace';$('#phT').textContent='PEACE · WAR IN '+durStr(G.peaceEnd-G.time);$('#phB').style.width=(100*G.time/G.peaceEnd)+'%';$('#phB').parentNode.style.display='';}
+  if(G.mp){ph.className='war';$('#phT').textContent=`ONLINE · VS ${MP.opp.toUpperCase()} · ${fmtT(G.time)}${MP.ping?' · '+MP.ping+'MS':''}`;$('#phB').parentNode.style.display='none';}
+  else if(G.peace){ph.className='peace';$('#phT').textContent='PEACE · WAR IN '+durStr(G.peaceEnd-G.time);$('#phB').style.width=(100*G.time/G.peaceEnd)+'%';$('#phB').parentNode.style.display='';}
   else{ph.className='war';$('#phT').textContent='AT WAR · '+fmtT(G.time-G.peaceEnd);$('#phB').parentNode.style.display='none';}
   liveUpdate($('#resBar'));
   for(const el of document.querySelectorAll('#resBar [data-low]')){const r=el.dataset.low;el.classList.toggle('low',E.res[r]<(r==='gold'?3:12)&&E.net[r]<=0);}
@@ -2208,35 +2457,33 @@ function livePeople(){const E=G.E[1];
 }
 $('#panel').addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b||!G)return;const a=b.dataset.act,E=G.E[1],c=G.country;
-  const fail=m=>{if(m){toast(m,'bad');return true}return false};
+  const ids=()=>G.sel.map(u=>u.id);
   switch(a){
     case 'close':setSel([]);G.tab=null;G.country=null;return;
-    case 'build':{const ct=G.selCity;if(!ct||ct.owner!==1)return;if(!fail(enqueueUnit(ct,b.dataset.t))){sfx('blip');liveUpdate($('#panel'));}return;}
-    case 'cancel':{const ct=G.selCity,i=+b.dataset.i;if(!ct||i>=ct.queue.length)return;refund(E,UT[ct.queue[i]].cost);ct.queue.splice(i,1);if(i===0)ct.prog=0;liveUpdate($('#panel'));return;}
-    case 'form':{if(G.divs.filter(d=>d.team===1).length>=12)return void toast('Max 12 divisions','bad');const d=makeDiv(1,G.sel);toast(d.name+' formed','good');G.selDirty=true;return;}
-    case 'disband':{const {div}=selInfo();if(div)disband(div);G.selDirty=true;return;}
-    case 'split':{const l=G.sel.slice(),xs=l.map(u=>u.x),ys=l.map(u=>u.y),hz=Math.max(...xs)-Math.min(...xs)>Math.max(...ys)-Math.min(...ys);
-      l.sort((p,q)=>hz?p.x-q.x:p.y-q.y);const h=Math.ceil(l.length/2),A=l.slice(0,h),B=l.slice(h);
-      if(G.divs.filter(d=>d.team===1).length>10)return void toast('Too many divisions','bad');makeDiv(1,A);makeDiv(1,B);setSel(A);return;}
-    case 'stop':for(const u of G.sel){if(UT[u.type].air)orderPlane(u,null);else{u.ordX=null;if(u.state==='retreat')u.rc=null;arrive(u);}}return;
-    case 'retreat':for(const u of G.sel)if(!UT[u.type].air)startRetreat(u,true,'hp');toast('Falling back');return;
-    case 'refuel':for(const u of G.sel)if(UT[u.type].cls==='veh')startRetreat(u,true,'fuel');toast('Heading to a city to refuel','', 'oil');return;
-    case 'autoret':{const v=!G.sel.every(u=>u.retreatOn);for(const u of G.sel)u.retreatOn=v;G.selDirty=true;return;}
+    case 'build':{const ct=G.selCity;if(!ct||ct.owner!==1)return;if(!doCmd('queue',{city:ct.id,type:b.dataset.t})){sfx('blip');liveUpdate($('#panel'));}return;}
+    case 'cancel':{const ct=G.selCity,i=+b.dataset.i;if(!ct||i>=ct.queue.length)return;doCmd('cancel',{city:ct.id,i});liveUpdate($('#panel'));return;}
+    case 'form':doCmd('form',{ids:ids()});G.selDirty=true;return;
+    case 'disband':{const {div}=selInfo();if(div)doCmd('disband',{div:div.id});G.selDirty=true;return;}
+    case 'split':{if(G.sel.length<2)return;const [A]=splitHalves(G.sel);doCmd('split',{ids:ids()});setSel(A);return;}
+    case 'stop':doCmd('stop',{ids:ids()});return;
+    case 'retreat':doCmd('retreat',{ids:ids()});toast('Falling back');return;
+    case 'refuel':doCmd('refuel',{ids:ids()});toast('Heading to a city to refuel','','oil');return;
+    case 'autoret':{const v=!G.sel.every(u=>u.retreatOn);doCmd('autoret',{ids:ids(),v});for(const u of G.sel)u.retreatOn=v;G.selDirty=true;return;}
     case 'place':return void startPlace(b.dataset.t);
     case 'qty':G.qty=+b.dataset.q;G.selDirty=true;return;
-    case 'mbuy':if(!fail(mBuy(1,b.dataset.r,G.qty)))sfx('coin');liveUpdate($('#panel'));return;
-    case 'msell':if(!fail(mSell(1,b.dataset.r,G.qty)))sfx('coin');liveUpdate($('#panel'));return;
+    case 'mbuy':if(!doCmd('mbuy',{r:b.dataset.r,q:G.qty}))sfx('coin');liveUpdate($('#panel'));return;
+    case 'msell':if(!doCmd('msell',{r:b.dataset.r,q:G.qty}))sfx('coin');liveUpdate($('#panel'));return;
     case 'country':G.country=G.countries[+b.dataset.id];G.selDirty=true;sfx('blip');return;
     case 'back':G.country=null;G.selDirty=true;return;
-    case 'sign':if(!fail(sign(c,b.dataset.k,1)))G.selDirty=true;return;
-    case 'cbuy':if(!fail(cTrade(1,c,b.dataset.r,G.qty,true)))sfx('coin');liveUpdate($('#panel'));return;
-    case 'csell':if(!fail(cTrade(1,c,b.dataset.r,G.qty,false)))sfx('coin');liveUpdate($('#panel'));return;
-    case 'hire':if(!fail(hire(1,c,+b.dataset.n))){sfx('coin');toast(`Hired ${b.dataset.n} volunteers from ${c.name}`,'good','mp');}return;
-    case 'gift':if(!fail(gift(1,c,b.dataset.k))){sfx('coin');toast(`${c.name} appreciates the gift`,'good','handshake');}return;
-    case 'pol':E.pol[b.dataset.k]=+b.dataset.pv;G.selDirty=true;sfx('blip');return;
-    case 'war':if(G.peace){declareWar();G.selDirty=true;}return;
+    case 'sign':if(!doCmd('sign',{c:c.id,k:b.dataset.k}))G.selDirty=true;return;
+    case 'cbuy':if(!doCmd('cbuy',{c:c.id,r:b.dataset.r,q:G.qty}))sfx('coin');liveUpdate($('#panel'));return;
+    case 'csell':if(!doCmd('csell',{c:c.id,r:b.dataset.r,q:G.qty}))sfx('coin');liveUpdate($('#panel'));return;
+    case 'hire':if(!doCmd('hire',{c:c.id,n:+b.dataset.n})){sfx('coin');toast(`Hired ${b.dataset.n} volunteers from ${c.name}`,'good','mp');}return;
+    case 'gift':if(!doCmd('gift',{c:c.id,k:b.dataset.k})){sfx('coin');toast(`${c.name} appreciates the gift`,'good','handshake');}return;
+    case 'pol':doCmd('pol',{k:b.dataset.k,v:+b.dataset.pv});E.pol[b.dataset.k]=+b.dataset.pv;G.selDirty=true;sfx('blip');return;
+    case 'war':if(G.peace){doCmd('war',{});G.selDirty=true;}return;
     case 'city':{const ct=G.cities[+b.dataset.id];openCity(ct);CAM.x=ct.x;CAM.y=ct.y;clampCam();return;}
-    case 'demolish':{const bd=G.selBld;if(bd&&bd.owner===1){refund(E,BT[bd.type].cost,.25);removeBld(bd);G.selBld=null;G.selDirty=true;toast(BT[bd.type].n+' demolished');}return;}
+    case 'demolish':{const bd=G.selBld;if(bd&&bd.owner===1){doCmd('demolish',{id:bd.id});G.selBld=null;G.selDirty=true;toast(BT[bd.type].n+' demolished');}return;}
   }
 });
 function renderDivBar(){
@@ -2274,17 +2521,20 @@ mini.addEventListener('pointermove',e=>{if(mini.hasPointerCapture(e.pointerId))m
 $('#bBox').onclick=()=>{boxMode=!boxMode;$('#bBox').classList.toggle('on',boxMode);if(boxMode)toast('Drag to select units');};
 $('#bHome').onclick=()=>{const c=capitalOf(1);if(c){CAM.x=c.x;CAM.y=c.y;clampCam();}};
 $('#bSpeed').onclick=()=>{G.speed=G.speed===1?2:G.speed===2?3:1;$('#bSpeed').textContent=G.speed+'×';};
-function togglePause(){if(G.over)return;G.paused=!G.paused;$('#pauseScr').classList.toggle('hide',!G.paused);}
-$('#bPause').onclick=togglePause;$('#bResume').onclick=togglePause;
+function togglePause(){if(G.over)return;
+  if(G.mp){const h=$('#pauseScr').classList.toggle('hide');$('#bRestart').style.display='none';$('#bQuit').textContent='Surrender & leave';return;}
+  G.paused=!G.paused;$('#pauseScr').classList.toggle('hide',!G.paused);$('#bRestart').style.display='';$('#bQuit').textContent='Main menu';}
+$('#bPause').onclick=togglePause;$('#bResume').onclick=()=>{if(G.mp)$('#pauseScr').classList.add('hide');else togglePause();};
 $('#bSound').onclick=()=>{muted=!muted;$('#bSound').textContent='Sound: '+(muted?'OFF':'ON');};
-$('#bRestart').onclick=()=>startGame(G.opts);$('#bQuit').onclick=toMenu;
-$('#bAgain').onclick=()=>startGame(G.opts);$('#bMenu').onclick=toMenu;
+$('#bRestart').onclick=()=>startGame(G.opts);$('#bQuit').onclick=()=>{if(G.mp&&!G.over&&!confirm('Surrender this match?'))return;toMenu();};
+$('#bAgain').onclick=()=>{if(G.mp){toMenu();openMP();}else startGame(G.opts);};$('#bMenu').onclick=toMenu;
+$('#bOnline').onclick=openMP;$('#bFind').onclick=mpFind;$('#bMpBack').onclick=()=>{if(MP.state==='queue')mpCancel();$('#mpScr').classList.add('hide');$('#menu').classList.remove('hide');};
 const menuOpts={diff:'normal',size:'medium',prep:'5'};
 for(const [id,key] of [['#sDiff','diff'],['#sSize','size'],['#sPrep','prep']])$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   menuOpts[key]=b.dataset.v;for(const x of $(id).children)x.classList.toggle('on',x===b);});
 $('#bStart').onclick=()=>{initAudio();if(AC&&AC.state==='suspended')AC.resume();startGame({...menuOpts});};
 function startGame(opts){
-  newGame(opts);resetUI();G.qty=10;prepWarned=0;tipI=0;pvT=6;mEvT=35;
+  if(G&&G.mp)mpLeave();newGame(opts);resetUI();G.qty=10;prepWarned=0;tipI=0;mEvT=35;$('#bSpeed').style.display='';
   $('#menu').classList.add('hide');$('#pauseScr').classList.add('hide');$('#endScr').classList.add('hide');$('#ui').style.display='';
   fitBounds();sizeMini();renderResBar();renderTabs();const cap=capitalOf(1);
   CAM.z=clamp(Math.min(VW,VH)/360,CAM.minZ,CAM.maxZ);CAM.x=cap.x;CAM.y=cap.y;clampCam();
@@ -2294,11 +2544,11 @@ function startGame(opts){
 }
 function resetUI(){$('#panel').classList.add('hide');$('#panel').innerHTML='';$('#place').classList.add('hide');$('#toasts').innerHTML='';boxMode=false;$('#bBox').classList.remove('on');gest=null;ptrs.clear();G.pk=null;}
 function startDemo(){newGame({size:'small',diff:'normal',demo:true});fitBounds();}
-function toMenu(){$('#pauseScr').classList.add('hide');$('#endScr').classList.add('hide');$('#ui').style.display='none';resetUI();startDemo();$('#menu').classList.remove('hide');}
+function toMenu(){if(G&&G.mp){mpLeave();$('#bSpeed').style.display='';}$('#mpScr').classList.add('hide');$('#pauseScr').classList.add('hide');$('#endScr').classList.add('hide');$('#ui').style.display='none';resetUI();startDemo();$('#menu').classList.remove('hide');}
 function gameOver(res,why){
   if(G.over)return;G.over=true;G.result=res+':'+why;if(G.demo)return;
-  setTimeout(()=>{const s=G.stats,E=G.E[1];$('#endTitle').textContent=res==='win'?'VICTORY':'DEFEAT';$('#endTitle').className='res '+res;
-    $('#endSub').textContent=why==='collapse'?(res==='win'?`${G.nat[2].name}'s government collapsed under unrest.`:'Your government collapsed. The people have had enough.'):res==='win'?`${G.nat[2].name}'s capital has fallen.`:'Your capital has fallen.';
+  setTimeout(()=>{const s=G.mpStats||G.stats[1],E=G.E[1];$('#endTitle').textContent=res==='win'?'VICTORY':'DEFEAT';$('#endTitle').className='res '+res;
+    $('#endSub').textContent=why==='surrender'?(res==='win'?`${G.nat[2].name} surrendered.`:'You surrendered.'):why==='disconnect'?(res==='win'?'Your opponent left the match.':'You were disconnected for too long.'):why==='time'?(res==='win'?'Time is up. You hold more land.':'Time is up. The enemy holds more land.'):why==='collapse'?(res==='win'?`${G.nat[2].name}'s government collapsed under unrest.`:'Your government collapsed. The people have had enough.'):res==='win'?`${G.nat[2].name}'s capital has fallen.`:'Your capital has fallen.';
     $('#endStats').innerHTML=[['TIME',dateStr(G.time)],['UNITS BUILT',s.built],['KILLS',s.kills],['LOSSES',s.lost],['PEAK TERRITORY',(s.peak*100).toFixed(0)+'%'],['CITIES TAKEN',s.caps],
       ['PEAK POPULATION',fmt(s.peakPop)],['BUILDINGS',s.blds],['TRADE VOLUME','$'+fmt(s.traded)],['CIVILIANS LOST',fmt(E.civDead+E.fled)]].map(([k,v])=>`<div><b>${v}</b><span>${k}</span></div>`).join('');
     $('#endScr').classList.remove('hide');},1200);
@@ -2308,6 +2558,7 @@ function resize(){DPR=Math.min(2,window.devicePixelRatio||1);VW=innerWidth;VH=in
   if(G&&G.demo&&(G.H>G.W)!==(VH>VW))startDemo();fitBounds();sizeMini();}
 addEventListener('resize',resize);
 resize();startDemo();requestAnimationFrame(frame);setTimeout(resize,300);
+if(sessionStorage.getItem('rw_match'))setTimeout(mpRejoin,400);
 
 </script>
 </body>

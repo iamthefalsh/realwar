@@ -90,6 +90,7 @@ function planeBody(type,C,bank,shadow,prop){
 }
 function drawPlane(u,s){
   const d=UT[u.type],C=ARMY[u.team],prop=G.time*60+u.id;
+  if(!u.landed&&u.hp<u.maxHp*.5&&Math.random()<.35&&G.parts.length<650)G.parts.push({x:u.x,y:u.y,vx:0,vy:0,life:.9,max:.9,sz:2,c:'smoke'});
   if(u.landed){ctx.save();ctx.translate(u.x,u.y);ctx.scale(s*.62,s*.62);ctx.rotate(-Math.PI/2);planeBody(u.type,C,0,true,0);planeBody(u.type,C,0,false,0);ctx.restore();return;}
   if(u.trail.length>3){ctx.strokeStyle='rgba(255,255,255,.10)';ctx.lineWidth=1.1*s;ctx.beginPath();ctx.moveTo(u.trail[0],u.trail[1]);for(let i=2;i<u.trail.length;i+=2)ctx.lineTo(u.trail[i],u.trail[i+1]);ctx.lineTo(u.x,u.y);ctx.stroke();}
   ctx.save();ctx.translate(u.x+8*s,u.y+12*s);ctx.scale(s*.9,s*.9);ctx.rotate(u.ang);planeBody(u.type,C,u.bank,true,0);ctx.restore();

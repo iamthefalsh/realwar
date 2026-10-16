@@ -1,0 +1,16 @@
+name = "realwar-server"
+main = "src/worker.js"
+compatibility_date = "2026-06-01"
+
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+# SQLite-backed Durable Objects are the kind available on the free Workers plan.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Lobby", "Room"]
